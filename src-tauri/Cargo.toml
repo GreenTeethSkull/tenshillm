@@ -1,0 +1,32 @@
+[package]
+name = "tenshillm"
+version = "0.1.0"
+description = "TenshiLLM - Mobile AI Chat Client"
+authors = ["Angel Rios"]
+edition = "2021"
+
+[lib]
+name = "tenshillm_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-http = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = "0.4"
+base64 = "0.22"
+futures = "0.3"
+urlencoding = "2"

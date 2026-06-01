@@ -1,0 +1,350 @@
+# TenshiLLM
+
+> Mobile-first AI chat client built with Tauri v2, React, and Bun. Connect to any OpenAI-compatible API, chat with reasoning models, execute MCP tools, and customize your experience with 9 beautiful themes.
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Tauri-v2-blue" alt="Tauri v2" />
+  <img src="https://img.shields.io/badge/React-18+-61dafb" alt="React 18+" />
+  <img src="https://img.shields.io/badge/TypeScript-5.8-3178c6" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Bun-1.3-fbf0cf" alt="Bun" />
+  <img src="https://img.shields.io/badge/Rust-1.95-dea584" alt="Rust" />
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
+</p>
+
+---
+
+## Features
+
+### Core Chat
+- **OpenAI-compatible API**: Connect to any provider (OpenRouter, Ollama, OpenCode, custom endpoints)
+- **Streaming responses**: Real-time SSE streaming with live updates
+- **Reasoning model support**: Full support for models with `reasoning_content` (e.g., mimo-v2.5-pro)
+- **Markdown rendering**: Rich text with syntax highlighting for code blocks
+- **Multi-conversation**: Manage multiple conversations with sidebar navigation
+
+### Multimodal
+- **Image upload**: Send images to vision-capable models (JPEG, PNG, WebP, GIF)
+- **Camera integration**: Capture images directly from device camera
+
+### MCP (Model Context Protocol)
+- **Remote MCP servers**: Connect to MCP servers via Streamable HTTP transport
+- **Tool discovery**: Automatic discovery of available tools from connected servers
+- **Tool execution**: LLM can invoke MCP tools during conversations
+
+### Agent Skills
+- **Markdown skill files**: Define skills as `.md` files that expand model capabilities
+- **Dynamic injection**: Skills are injected into the system prompt based on context
+- **In-app editor**: Create and edit skills directly within the app
+
+### Web Search
+- **Multiple providers**: Tavily, SerpAPI, Brave Search, DuckDuckGo
+- **Toggle on/off**: Enable/disable web search per conversation
+- **Contextual results**: Search results are provided as context to the LLM
+
+### Themes (9 built-in)
+| Theme | Style |
+|-------|-------|
+| Light | Clean and bright |
+| Tokyo Night | Dark purple-blue |
+| Dracula | Classic dark |
+| Catppuccin Mocha | Soothing pastel dark |
+| Gruvbox Dark | Retro warm |
+| Nord | Arctic cool |
+| Solarized Dark | Precision dark |
+| One Dark | Atom-inspired |
+| Everforest | Nature-inspired |
+
+### Data Management
+- **100% local storage**: All data stays on your device
+- **Soft delete**: Conversations go to trash before permanent deletion
+- **Cleanup tools**: Empty trash, clear cache, delete everything
+- **Export/backup**: Export conversations as JSON
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                  Tauri WebView                   │
+│  ┌───────────────────────────────────────────┐   │
+│  │           React Frontend (Vite)           │   │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────────┐ │   │
+│  │  │  Chat   │ │ Settings│ │  Cleanup    │ │   │
+│  │  │  View   │ │  Panel  │ │  Manager    │ │   │
+│  │  └────┬────┘ └────┬────┘ └──────┬──────┘ │   │
+│  │       │           │             │         │   │
+│  │  ┌────┴───────────┴─────────────┴──────┐  │   │
+│  │  │        Core State (Zustand)         │  │   │
+│  │  └────────────────┬────────────────────┘  │   │
+│  └───────────────────┼───────────────────────┘   │
+│                      │ IPC (invoke)              │
+│  ┌───────────────────┴───────────────────────┐   │
+│  │           Rust Backend (Tauri)            │   │
+│  │  ┌──────────┐ ┌──────────┐ ┌───────────┐ │   │
+│  │  │ API      │ │ MCP      │ │ Search    │ │   │
+│  │  │ Client   │ │ Manager  │ │ Engine    │ │   │
+│  │  └──────────┘ └──────────┘ └───────────┘ │   │
+│  └───────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Runtime | Tauri v2 | Cross-platform desktop/mobile framework |
+| Frontend | React 18 + TypeScript | UI components and state management |
+| Styling | Tailwind CSS v4 | Utility-first CSS with theme variables |
+| State | Zustand | Lightweight state management |
+| Bundler | Vite | Fast development and build tool |
+| Package Manager | Bun | Fast JavaScript runtime and package manager |
+| Backend | Rust | High-performance native backend |
+| HTTP | reqwest + tauri-plugin-http | HTTP requests with CORS bypass |
+| Storage | localStorage | Client-side persistence |
+
+---
+
+## Prerequisites
+
+- [Bun](https://bun.sh) (v1.0+)
+- [Rust](https://www.rust-lang.org/tools/install) (via Homebrew: `brew install rust`)
+- [Tauri CLI prerequisites](https://v2.tauri.app/start/prerequisites/)
+
+### For Android development
+- Android Studio with SDK Platform, NDK, and Build Tools
+- `ANDROID_HOME` and `NDK_HOME` environment variables
+
+### For iOS development (macOS only)
+- Xcode with iOS SDK
+- CocoaPods (`brew install cocoapods`)
+
+---
+
+## Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd tenshillm
+
+# Install dependencies
+bun install
+
+# Initialize mobile targets (optional)
+bun run tauri android init
+bun run tauri ios init
+```
+
+---
+
+## Development
+
+```bash
+# Desktop development
+bun run tauri dev
+
+# Android development
+bun run tauri android dev
+
+# iOS development
+bun run tauri ios dev
+```
+
+---
+
+## Building
+
+```bash
+# Build for desktop
+bun run tauri build
+
+# Build for Android
+bun run tauri android build
+
+# Build for iOS
+bun run tauri ios build
+```
+
+---
+
+## Project Structure
+
+```
+tenshillm/
+├── src/                          # React frontend
+│   ├── main.tsx                  # Entry point
+│   ├── App.tsx                   # Root component
+│   ├── types/index.ts            # TypeScript type definitions
+│   ├── styles/globals.css        # Tailwind + 9 theme definitions
+│   ├── stores/                   # Zustand state management
+│   │   ├── themeStore.ts         # Theme state
+│   │   ├── settingsStore.ts      # Providers, MCP, skills, search config
+│   │   └── chatStore.ts          # Conversations and messages
+│   ├── lib/
+│   │   └── openai.ts             # OpenAI payload builder
+│   └── components/
+│       ├── sidebar/Sidebar.tsx   # Conversation list sidebar
+│       ├── chat/
+│       │   ├── ChatView.tsx      # Main chat interface
+│       │   ├── MessageBubble.tsx # Message display with Markdown
+│       │   └── MessageInput.tsx  # Input with image upload
+│       ├── settings/SettingsPanel.tsx  # Full settings UI
+│       └── cleanup/CleanupPanel.tsx    # Data cleanup tools
+├── src-tauri/                    # Rust backend
+│   ├── Cargo.toml                # Rust dependencies
+│   ├── tauri.conf.json           # Tauri configuration
+│   ├── capabilities/default.json # Plugin permissions
+│   └── src/
+│       ├── main.rs               # Rust entry point
+│       └── lib.rs                # Tauri commands (API, MCP, search)
+├── package.json                  # Frontend dependencies
+├── vite.config.ts                # Vite configuration
+├── PLAN.md                       # Detailed project plan
+├── AGENTS.md                     # Agent context documentation
+└── README.md                     # This file
+```
+
+---
+
+## Configuration
+
+### Adding a Provider
+
+1. Open **Settings** (gear icon in sidebar)
+2. Go to **Providers** tab
+3. Click **Add Provider**
+4. Enter:
+   - **Name**: e.g., "OpenRouter"
+   - **Base URL**: e.g., `https://openrouter.ai/api/v1`
+   - **API Key**: Your API key
+5. Click **Save**
+6. Click **Add Model** under the provider
+7. Enter model details (ID, name, capabilities)
+8. Click the model to set it as active
+
+### Adding MCP Servers
+
+1. Open **Settings** > **MCP** tab
+2. Click **Add Server**
+3. Enter:
+   - **Name**: e.g., "Sentry"
+   - **URL**: e.g., `https://mcp.sentry.dev/mcp`
+   - **Headers** (optional): `{"Authorization": "Bearer token"}`
+4. Click **Save**
+
+### Adding Agent Skills
+
+1. Open **Settings** > **Skills** tab
+2. Click **Add Skill**
+3. Enter:
+   - **Name**: e.g., "SQL Expert"
+   - **Description**: Short description
+   - **Content**: Markdown instructions for the model
+4. Click **Save**
+
+### Enabling Web Search
+
+1. Open **Settings** > **Search** tab
+2. Toggle **Enable web search**
+3. Select provider (Tavily recommended)
+4. Enter API key
+5. Adjust max results slider
+
+---
+
+## Supported Models
+
+TenshiLLM works with any OpenAI-compatible API. Tested with:
+
+| Provider | Models |
+|----------|--------|
+| OpenCode | mimo-v2.5-pro, mimo-v2.5, deepseek-v4-pro, qwen3.7-max, kimi-k2.6 |
+| OpenRouter | GPT-4o, Claude 3.5, Llama 3.1, Mistral |
+| Ollama | Any local model |
+| Together AI | Llama, Mixtral, CodeLlama |
+| Groq | Llama 3, Mixtral |
+
+---
+
+## API Format
+
+TenshiLLM sends requests in OpenAI chat completions format:
+
+```json
+{
+  "model": "mimo-v2.5-pro",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Hello!"}
+  ],
+  "stream": true,
+  "max_tokens": 4096,
+  "temperature": 0.7
+}
+```
+
+For vision models, images are sent as base64:
+
+```json
+{
+  "role": "user",
+  "content": [
+    {"type": "text", "text": "What's in this image?"},
+    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}}
+  ]
+}
+```
+
+---
+
+## Troubleshooting
+
+### "url not allowed on the configured scope"
+The HTTP plugin scope needs to be configured in `src-tauri/capabilities/default.json`. Ensure it includes:
+```json
+{
+  "identifier": "http:default",
+  "allow": [
+    {"url": "https://**"},
+    {"url": "http://**"}
+  ]
+}
+```
+
+### Build fails with Rust errors
+Ensure Rust is installed via Homebrew:
+```bash
+brew install rust
+```
+
+### Android build fails
+Ensure `ANDROID_HOME` and `NDK_HOME` are set:
+```bash
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export NDK_HOME="$ANDROID_HOME/ndk/$(ls -1 $ANDROID_HOME/ndk)"
+```
+
+---
+
+## License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+## Author
+
+**Angel Rios** - SRE at Pacífico Seguros & Co-founder of AVR Solutions
+
+---
+
+## Acknowledgments
+
+- [Tauri](https://tauri.app) - Cross-platform framework
+- [React](https://react.dev) - UI library
+- [Tailwind CSS](https://tailwindcss.com) - CSS framework
+- [Zustand](https://zustand-demo.pmnd.rs) - State management
+- [Lucide](https://lucide.dev) - Icon library
