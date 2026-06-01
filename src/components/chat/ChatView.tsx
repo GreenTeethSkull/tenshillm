@@ -120,8 +120,8 @@ export function ChatView() {
       };
       const body = JSON.stringify(payload);
 
-      console.log('[TenshiLLM] Request URL:', url);
-      console.log('[TenshiLLM] Request body:', body);
+      // console.log('[TenshiLLM] Request URL:', url);
+      // console.log('[TenshiLLM] Request body:', body);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -131,9 +131,9 @@ export function ChatView() {
         connectTimeout: 30000,
       });
 
-      console.log('[TenshiLLM] Response status:', response.status);
-      console.log('[TenshiLLM] Response ok:', response.ok);
-      console.log('[TenshiLLM] Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
+      // console.log('[TenshiLLM] Response status:', response.status);
+      // console.log('[TenshiLLM] Response ok:', response.ok);
+      // console.log('[TenshiLLM] Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -142,8 +142,8 @@ export function ChatView() {
       }
 
       const responseText = await response.text();
-      console.log('[TenshiLLM] Response length:', responseText.length);
-      console.log('[TenshiLLM] Response preview:', responseText.substring(0, 500));
+      // console.log('[TenshiLLM] Response length:', responseText.length);
+      // console.log('[TenshiLLM] Response preview:', responseText.substring(0, 500));
 
       const lines = responseText.split('\n');
       let fullContent = '';
@@ -187,9 +187,9 @@ export function ChatView() {
         }
       }
 
-      console.log('[TenshiLLM] Processed chunks:', chunkCount);
-      console.log('[TenshiLLM] Final content length:', fullContent.length);
-      console.log('[TenshiLLM] Final reasoning length:', fullReasoning.length);
+      // console.log('[TenshiLLM] Processed chunks:', chunkCount);
+      // console.log('[TenshiLLM] Final content length:', fullContent.length);
+      // console.log('[TenshiLLM] Final reasoning length:', fullReasoning.length);
 
       if (fullReasoning && !fullContent) {
         setStreamingContent(fullReasoning);

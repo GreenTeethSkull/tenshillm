@@ -7,7 +7,7 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  theme: (localStorage.getItem('tenshillm-theme') as ThemeName) || 'tokyo-night',
+  theme: (localStorage.getItem('tenshillm-theme') as ThemeName) || 'dracula',
   setTheme: (theme) => {
     localStorage.setItem('tenshillm-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
