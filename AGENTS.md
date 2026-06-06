@@ -15,7 +15,7 @@
 | State | Zustand | 5.x |
 | Bundler | Vite | 7.x |
 | Package Manager | Bun | 1.3+ |
-| Backend | Rust | 1.95+ |
+| Backend | Rust | 1.96+ |
 
 ## Architecture
 
@@ -204,9 +204,58 @@ bun run tauri build
 }
 ```
 
-### Rust Build Errors
-**Problem**: `cargo build` fails
-**Solution**: Install Rust via Homebrew: `brew install rust`
+### Rust Build Errors (iOS)
+**Problem**: `cargo build` for iOS fails with `error[E0463]: can't find crate for std` on `aarch64-apple-ios-sim`, while desktop builds work fine.
+**Root cause**: Homebrew's `rust` formula ships its own cargo/rustc at `/opt/homebrew/bin/` that knows nothing about cross-compilation targets. The iOS std library lives in the rustup-managed toolchain under `~/.rustup/toolchains/`. Whichever `cargo` is first in `PATH` wins; if it's the Homebrew one, iOS builds can't find the std.
+
+**Solution**: Install both `rust` and `rustup` from Homebrew, then put the rustup shim directory first in `PATH` (the rustup formula's `libexec/bin/` contains the real binary shims, while `/opt/homebrew/opt/rustup/bin/rustup` is a bash wrapper that breaks shim dispatch).
+
+Setup:
+```bash
+brew install rust rustup
+# Bootstrap the toolchain via Homebrew's rustup
+$(brew --prefix rustup)/bin/rustup default stable
+$(brew --prefix rustup)/bin/rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+
+# Put rustup's libexec/bin FIRST in PATH (must be before /opt/homebrew/bin)
+# In ~/.zshrc, prepend:  export PATH="$(brew --prefix rustup)/libexec/bin:$PATH"
+# In ~/.zshenv, add:     export PATH="$(brew --prefix rustup)/libexec/bin:$PATH"
+# (.zshenv is sourced by non-interactive shells too, e.g. Xcode build phases)
+# In ~/.config/fish/config.fish, add AFTER Homebrew (last wins in Fish):
+#   set -x PATH (brew --prefix rustup)/libexec/bin $PATH
+```
+
+**Why the shim directory matters**: `$(brew --prefix rustup)/bin/rustup` is a 161-byte bash wrapper that execs the real binary with a fixed `argv[0]`, so the shims (cargo, rustc, …) symlinked to it always dispatch as `rustup`. The Homebrew formula already provides the *real* rustup-init-style shim setup at `$(brew --prefix rustup)/libexec/bin/` (binary + symlinks that preserve `argv[0]`). Use that path.
+
+**Why not just `rustup-init` from rustup.rs**: That puts the toolchain manager in `~/.cargo/bin/` and isn't installed via Homebrew. The Homebrew `rustup` formula already ships the same shim layout at `libexec/bin/`, so there's no need for an out-of-band installer.
+
+**Fish shell PATH order**: In Fish, each `set -x PATH X $PATH` prepends X, so the last line wins. Add the rustup path AFTER the Homebrew path, not before.
+
+Verify with `which cargo` → must print `/opt/homebrew/opt/rustup/libexec/bin/cargo` (the rustup shim), **not** `/opt/homebrew/bin/cargo` (the Homebrew rust formula binary).
+
+### Android Build Errors (OpenSSL)
+**Problem**: `cargo build` for Android fails with `Could not find directory of OpenSSL installation` when compiling `openssl-sys`.
+**Root cause**: The `openssl-sys` crate cannot find OpenSSL for the Android target during cross-compilation.
+
+**Solution**: Add `openssl` with the `vendored` feature to `Cargo.toml`, which compiles OpenSSL from source for the target platform:
+```toml
+[dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+```
+
+Additionally, ensure the Android NDK toolchain is in your PATH:
+```bash
+# Fish shell
+set -x PATH /Users/angelrios/Library/Android/sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/darwin-x86_64/bin $PATH
+```
+
+The NDK compilers have versioned names (e.g., `aarch64-linux-android21-clang`), so create symlinks without the version number:
+```bash
+cd /Users/angelrios/Library/Android/sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/darwin-x86_64/bin
+ln -sf aarch64-linux-android21-clang aarch64-linux-android-clang
+ln -sf aarch64-linux-android21-clang++ aarch64-linux-android-clang++
+# Repeat for other architectures as needed
+```
 
 ### Empty Response from Reasoning Models
 **Problem**: Model returns `content: null` with `reasoning_content`
@@ -244,6 +293,7 @@ bun run tauri build
 - `serde` / `serde_json`: Serialization
 - `tokio`: Async runtime
 - `reqwest`: HTTP client
+- `openssl`: TLS/SSL with `vendored` feature for Android cross-compilation
 - `uuid`: UUID generation
 - `chrono`: Date/time handling
 - `base64`: Base64 encoding

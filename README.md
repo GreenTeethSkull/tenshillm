@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/React-18+-61dafb" alt="React 18+" />
   <img src="https://img.shields.io/badge/TypeScript-5.8-3178c6" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Bun-1.3-fbf0cf" alt="Bun" />
-  <img src="https://img.shields.io/badge/Rust-1.95-dea584" alt="Rust" />
+  <img src="https://img.shields.io/badge/Rust-1.96-dea584" alt="Rust" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
 
@@ -110,16 +110,22 @@
 ## Prerequisites
 
 - [Bun](https://bun.sh) (v1.0+)
-- [Rust](https://www.rust-lang.org/tools/install) (via Homebrew: `brew install rust`)
+- [Rust](https://www.rust-lang.org/tools/install) (via Homebrew: `brew install rust rustup`)
 - [Tauri CLI prerequisites](https://v2.tauri.app/start/prerequisites/)
 
 ### For Android development
 - Android Studio with SDK Platform, NDK, and Build Tools
 - `ANDROID_HOME` and `NDK_HOME` environment variables
+- NDK toolchain in PATH for cross-compilation:
+  ```bash
+  # Fish shell
+  set -x PATH /Users/angelrios/Library/Android/sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/darwin-x86_64/bin $PATH
+  ```
 
 ### For iOS development (macOS only)
 - Xcode with iOS SDK
 - CocoaPods (`brew install cocoapods`)
+- Rust toolchain with iOS targets (see "Troubleshooting" below)
 
 ---
 
@@ -314,18 +320,43 @@ The HTTP plugin scope needs to be configured in `src-tauri/capabilities/default.
 }
 ```
 
-### Build fails with Rust errors
-Ensure Rust is installed via Homebrew:
+### Build fails with Rust errors (iOS)
+Ensure Rust is installed via Homebrew with rustup for iOS cross-compilation:
 ```bash
-brew install rust
+brew install rust rustup
+$(brew --prefix rustup)/bin/rustup default stable
+$(brew --prefix rustup)/bin/rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
 ```
 
-### Android build fails
-Ensure `ANDROID_HOME` and `NDK_HOME` are set:
+Then configure your shell PATH to use the rustup shims:
 ```bash
-export ANDROID_HOME="$HOME/Library/Android/sdk"
-export NDK_HOME="$ANDROID_HOME/ndk/$(ls -1 $ANDROID_HOME/ndk)"
+# Fish shell (add to ~/.config/fish/config.fish AFTER Homebrew path)
+set -x PATH (brew --prefix rustup)/libexec/bin $PATH
+
+# Zsh (add to ~/.zshrc)
+export PATH="$(brew --prefix rustup)/libexec/bin:$PATH"
 ```
+
+See [AGENTS.md](AGENTS.md#rust-build-errors-ios) for detailed explanation.
+
+### Android build fails with OpenSSL errors
+The `openssl-sys` crate cannot find OpenSSL for Android cross-compilation. This is already fixed in `Cargo.toml` with the `vendored` feature:
+```toml
+openssl = { version = "0.10", features = ["vendored"] }
+```
+
+Additionally, ensure the Android NDK toolchain is in your PATH and create symlinks for the compilers:
+```bash
+# Add NDK to PATH (Fish shell)
+set -x PATH /Users/angelrios/Library/Android/sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/darwin-x86_64/bin $PATH
+
+# Create symlinks without version numbers
+cd /Users/angelrios/Library/Android/sdk/ndk/30.0.14904198/toolchains/llvm/prebuilt/darwin-x86_64/bin
+ln -sf aarch64-linux-android21-clang aarch64-linux-android-clang
+ln -sf aarch64-linux-android21-clang++ aarch64-linux-android-clang++
+```
+
+See [AGENTS.md](AGENTS.md#android-build-errors-openssl) for detailed explanation.
 
 ---
 
