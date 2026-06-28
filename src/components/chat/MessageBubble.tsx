@@ -22,13 +22,13 @@ export function MessageBubble({ message, isStreaming }: Props) {
 
   if (isTool) {
     return (
-      <div className="flex gap-3 max-w-3xl mx-auto">
-        <div className="w-7 h-7 rounded-full bg-warning/20 flex items-center justify-center shrink-0">
-          <Bot size={14} className="text-warning" />
+      <div className="flex gap-3 md:gap-4">
+        <div className="w-8 h-8 rounded-full bg-warning/15 flex items-center justify-center shrink-0 mt-0.5">
+          <Bot size={15} className="text-warning" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-xs text-text-muted mb-1">Tool Result</div>
-          <pre className="bg-code-bg text-text-secondary text-xs p-3 rounded-lg overflow-x-auto">
+          <div className="text-xs font-medium text-text-muted mb-1.5">Tool Result</div>
+          <pre className="bg-code-bg text-text-secondary text-xs p-4 rounded-xl overflow-x-auto leading-relaxed">
             {message.content}
           </pre>
         </div>
@@ -37,33 +37,33 @@ export function MessageBubble({ message, isStreaming }: Props) {
   }
 
   return (
-    <div className={`flex gap-3 max-w-3xl mx-auto ${isUser ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex gap-3 md:gap-4 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div
-        className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
           isUser ? 'bg-user-bubble' : 'bg-accent-muted'
         }`}
       >
         {isUser ? (
-          <User size={14} className="text-user-bubble-text" />
+          <User size={15} className="text-user-bubble-text" />
         ) : (
-          <Bot size={14} className="text-accent" />
+          <Bot size={15} className="text-accent" />
         )}
       </div>
 
       <div className={`min-w-0 flex-1 ${isUser ? 'flex flex-col items-end' : ''}`}>
         <div
-          className={`group relative rounded-2xl px-4 py-2.5 max-w-full ${
+          className={`group relative rounded-2xl px-4 py-3 md:px-5 md:py-3.5 max-w-[85%] sm:max-w-[80%] ${
             isUser
               ? 'bg-user-bubble text-user-bubble-text'
               : 'bg-assistant-bubble text-assistant-bubble-text'
           }`}
         >
           {message.attachments.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
+            <div className="flex flex-wrap gap-2 mb-3">
               {message.attachments.map((att) => (
                 <div
                   key={att.id}
-                  className="text-xs bg-black/10 rounded-lg px-2 py-1"
+                  className="text-xs bg-black/10 rounded-xl px-2.5 py-1.5"
                 >
                   {att.mimeType.startsWith('image/') ? (
                     <img
@@ -80,9 +80,9 @@ export function MessageBubble({ message, isStreaming }: Props) {
           )}
 
           {isUser ? (
-            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+            <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
           ) : (
-            <div className="markdown-body text-sm">
+            <div className="markdown-body text-[15px]">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -106,25 +106,23 @@ export function MessageBubble({ message, isStreaming }: Props) {
           )}
 
           {isStreaming && (
-            <span className="inline-block w-2 h-4 bg-accent animate-pulse ml-0.5" />
+            <span className="inline-block w-2 h-4 bg-accent animate-pulse ml-0.5 rounded-sm" />
           )}
 
-          {/* Copy button */}
           {!isUser && message.content && (
             <button
               onClick={handleCopy}
-              className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100
-                p-1.5 rounded-lg bg-surface border border-border
-                text-text-muted hover:text-text transition-all"
+              className="absolute -right-1 -top-1 sm:opacity-0 sm:group-hover:opacity-100
+                p-2 rounded-xl bg-surface border border-border
+                text-text-muted hover:text-text transition-all shadow-sm"
               title="Copy"
             >
-              {copied ? <Check size={12} /> : <Copy size={12} />}
+              {copied ? <Check size={13} /> : <Copy size={13} />}
             </button>
           )}
         </div>
 
-        {/* Timestamp */}
-        <div className={`text-xs text-text-muted mt-1 ${isUser ? 'text-right' : ''}`}>
+        <div className={`text-[11px] text-text-muted mt-1.5 px-1 ${isUser ? 'text-right' : ''}`}>
           {new Date(message.timestamp).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',

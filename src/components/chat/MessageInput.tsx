@@ -48,7 +48,7 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
     if (!files) return;
 
     for (const file of Array.from(files)) {
-      if (file.size > 20 * 1024 * 1024) continue; // 20MB limit
+      if (file.size > 20 * 1024 * 1024) continue;
 
       const reader = new FileReader();
       reader.onload = () => {
@@ -75,103 +75,109 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
   };
 
   return (
-    <div className="border-t border-border bg-bg p-4">
-      {/* Attachments preview */}
-      {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {attachments.map((att) => (
-            <div
-              key={att.id}
-              className="relative group rounded-lg overflow-hidden border border-border"
-            >
-              {att.mimeType.startsWith('image/') ? (
-                <img
-                  src={`data:${att.mimeType};base64,${att.base64Data}`}
-                  alt={att.name}
-                  className="w-20 h-20 object-cover"
-                />
-              ) : (
-                <div className="w-20 h-20 flex items-center justify-center bg-surface text-xs text-text-muted p-2 text-center">
-                  {att.name}
-                </div>
-              )}
-              <button
-                onClick={() => removeAttachment(att.id)}
-                className="absolute top-0.5 right-0.5 p-0.5 rounded-full
-                  bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+    <div
+      className="border-t border-border bg-bg/80 backdrop-blur-sm"
+      style={{ paddingBottom: 'max(12px, var(--safe-bottom))' }}
+    >
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 pt-3 pb-1">
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {attachments.map((att) => (
+              <div
+                key={att.id}
+                className="relative group rounded-xl overflow-hidden border border-border"
               >
-                <X size={12} />
+                {att.mimeType.startsWith('image/') ? (
+                  <img
+                    src={`data:${att.mimeType};base64,${att.base64Data}`}
+                    alt={att.name}
+                    className="w-20 h-20 object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 flex items-center justify-center bg-surface text-xs text-text-muted p-2 text-center">
+                    {att.name}
+                  </div>
+                )}
+                <button
+                  onClick={() => removeAttachment(att.id)}
+                  className="absolute top-1 right-1 p-1 rounded-full
+                    bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-end gap-2 md:gap-3">
+          {supportsVision && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="p-3 rounded-xl bg-surface border border-border
+                  text-text-muted hover:text-text hover:bg-surface-hover
+                  transition-colors shrink-0"
+                title="Attach image"
+              >
+                <ImagePlus size={18} />
               </button>
-            </div>
-          ))}
-        </div>
-      )}
+            </>
+          )}
 
-      <div className="flex items-end gap-2">
-        {/* Image upload button */}
-        {supportsVision && (
-          <>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleFileSelect}
+          <div className="flex-1 relative">
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onInput={handleInput}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a message..."
+              rows={1}
+              className="w-full resize-none rounded-2xl border border-border
+                bg-surface px-4 py-3 text-[15px] text-text
+                placeholder:text-text-muted
+                focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/60
+                transition-all leading-relaxed"
+              style={{ maxHeight: '200px' }}
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2.5 rounded-xl bg-surface border border-border
-                text-text-muted hover:text-text hover:bg-surface-hover
-                transition-colors shrink-0"
-              title="Attach image"
-            >
-              <ImagePlus size={18} />
-            </button>
-          </>
-        )}
+          </div>
 
-        {/* Text input */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onInput={handleInput}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message... (Shift+Enter for new line)"
-            rows={1}
-            className="w-full resize-none rounded-xl border border-border
-              bg-surface px-4 py-2.5 text-sm text-text
-              placeholder:text-text-muted
-              focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent
-              transition-colors"
-            style={{ maxHeight: '200px' }}
-          />
+          {isStreaming ? (
+            <button
+              onClick={onStop}
+              className="p-3 rounded-xl bg-error text-white
+                hover:bg-error/80 active:scale-[0.95] transition-all shrink-0"
+              title="Stop"
+            >
+              <Square size={18} />
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!content.trim() && attachments.length === 0}
+              className="p-3 rounded-xl bg-accent text-white
+                hover:bg-accent-hover active:scale-[0.95]
+                disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100
+                transition-all shrink-0"
+              title="Send"
+            >
+              <Send size={18} />
+            </button>
+          )}
         </div>
 
-        {/* Send / Stop button */}
-        {isStreaming ? (
-          <button
-            onClick={onStop}
-            className="p-2.5 rounded-xl bg-error text-white
-              hover:bg-error/80 transition-colors shrink-0"
-            title="Stop"
-          >
-            <Square size={18} />
-          </button>
-        ) : (
-          <button
-            onClick={handleSend}
-            disabled={!content.trim() && attachments.length === 0}
-            className="p-2.5 rounded-xl bg-accent text-white
-              hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed
-              transition-colors shrink-0"
-            title="Send"
-          >
-            <Send size={18} />
-          </button>
-        )}
+        <p className="text-[11px] text-text-muted text-center mt-2 px-2">
+          Shift+Enter for new line
+        </p>
       </div>
     </div>
   );

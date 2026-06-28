@@ -3,7 +3,7 @@ import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
-import { PanelLeftOpen, Settings, Cpu } from 'lucide-react';
+import { PanelLeftOpen, Settings, Cpu, MessageSquare } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import type { Message, Attachment } from '../../types';
 import { buildChatPayload, parseStreamChunk } from '../../lib/openai';
@@ -120,9 +120,6 @@ export function ChatView() {
       };
       const body = JSON.stringify(payload);
 
-      // console.log('[TenshiLLM] Request URL:', url);
-      // console.log('[TenshiLLM] Request body:', body);
-
       const response = await fetch(url, {
         method: 'POST',
         headers,
@@ -131,10 +128,6 @@ export function ChatView() {
         connectTimeout: 30000,
       });
 
-      // console.log('[TenshiLLM] Response status:', response.status);
-      // console.log('[TenshiLLM] Response ok:', response.ok);
-      // console.log('[TenshiLLM] Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[TenshiLLM] API Error body:', errorText);
@@ -142,8 +135,6 @@ export function ChatView() {
       }
 
       const responseText = await response.text();
-      // console.log('[TenshiLLM] Response length:', responseText.length);
-      // console.log('[TenshiLLM] Response preview:', responseText.substring(0, 500));
 
       const lines = responseText.split('\n');
       let fullContent = '';
@@ -187,23 +178,12 @@ export function ChatView() {
         }
       }
 
-      // console.log('[TenshiLLM] Processed chunks:', chunkCount);
-      // console.log('[TenshiLLM] Final content length:', fullContent.length);
-      // console.log('[TenshiLLM] Final reasoning length:', fullReasoning.length);
-
       if (fullReasoning && !fullContent) {
         setStreamingContent(fullReasoning);
         updateLastAssistantMessage(activeConversationId, fullReasoning);
       }
     } catch (err: unknown) {
       console.error('[TenshiLLM] Catch error:', err);
-      console.error('[TenshiLLM] Error type:', typeof err);
-      console.error('[TenshiLLM] Error string:', String(err));
-      if (err instanceof Error) {
-        console.error('[TenshiLLM] Error name:', err.name);
-        console.error('[TenshiLLM] Error message:', err.message);
-        console.error('[TenshiLLM] Error stack:', err.stack);
-      }
       if (err instanceof Error && err.name === 'AbortError') return;
       const errorMsg = err instanceof Error ? err.message : `Unknown error: ${String(err)}`;
       updateLastAssistantMessage(activeConversationId, `Error: ${errorMsg}`);
@@ -220,91 +200,110 @@ export function ChatView() {
 
   if (!activeConversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-text-muted">
+      <div className="flex-1 flex flex-col items-center justify-center text-text-muted px-6">
         {!sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
-            className="absolute top-3 left-3 p-2 rounded-lg
-              bg-surface border border-border
+            className="absolute p-2.5 rounded-xl
+              bg-surface/90 backdrop-blur-sm border border-border
               hover:bg-surface-hover text-text-secondary
-              transition-colors"
+              transition-colors lg:hidden"
+            style={{
+              top: 'max(12px, var(--safe-top))',
+              left: 'max(12px, var(--safe-left))',
+            }}
           >
-            <PanelLeftOpen size={18} />
+            <PanelLeftOpen size={20} />
           </button>
         )}
-        <Cpu size={48} className="mb-4 text-accent opacity-50" />
-        <h2 className="text-xl font-semibold text-text mb-2">TenshiLLM</h2>
-        <p className="text-sm mb-6">Select a conversation or start a new one</p>
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="px-4 py-2 rounded-lg bg-accent text-white text-sm
-            hover:bg-accent-hover transition-colors"
-        >
-          Configure Provider
-        </button>
+        <div className="flex flex-col items-center max-w-xs text-center">
+          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-5">
+            <Cpu size={32} className="text-accent" />
+          </div>
+          <h2 className="text-xl font-semibold text-text mb-2">TenshiLLM</h2>
+          <p className="text-sm text-text-muted mb-8 leading-relaxed">
+            Select a conversation from the sidebar or start a new one
+          </p>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-medium
+              hover:bg-accent-hover active:scale-[0.98] transition-all"
+          >
+            Configure Provider
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg">
-        <div className="flex items-center gap-3 min-w-0">
+      {/* Header */}
+      <header
+        className="flex items-center justify-between px-4 md:px-6 border-b border-border bg-bg/80 backdrop-blur-sm"
+        style={{ paddingTop: 'max(8px, var(--safe-top))' }}
+      >
+        <div className="flex items-center gap-3 min-w-0 py-3">
           {!sidebarOpen && (
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted
-                hover:text-text transition-colors shrink-0"
+              className="p-2 -ml-1 rounded-xl hover:bg-surface-hover text-text-muted
+                hover:text-text transition-colors shrink-0 lg:hidden"
             >
-              <PanelLeftOpen size={18} />
+              <PanelLeftOpen size={20} />
             </button>
           )}
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-text truncate">
+            <h2 className="text-sm font-semibold text-text truncate leading-snug">
               {activeConversation.title}
             </h2>
-            <p className="text-xs text-text-muted truncate">
+            <p className="text-xs text-text-muted truncate mt-0.5">
               {provider?.name} / {model?.displayName}
             </p>
           </div>
         </div>
         <button
           onClick={() => setSettingsOpen(true)}
-          className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted
+          className="p-2 -mr-1 rounded-xl hover:bg-surface-hover text-text-muted
             hover:text-text transition-colors"
         >
-          <Settings size={18} />
+          <Settings size={20} />
         </button>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {currentMessages.length === 0 && (
-          <div className="text-center text-text-muted py-12">
-            <Cpu size={32} className="mx-auto mb-3 text-accent opacity-50" />
-            <p className="text-sm">Start a conversation</p>
-          </div>
-        )}
-        {currentMessages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
-        {isStreaming && streamingContent && activeConversationId && !currentMessages.some(
-          (m) => m.role === 'assistant' && m.content === streamingContent
-        ) && (
-          <MessageBubble
-            message={{
-              id: 'streaming',
-              conversationId: activeConversationId,
-              role: 'assistant',
-              content: streamingContent,
-              attachments: [],
-              toolCalls: [],
-              toolResults: [],
-              timestamp: Date.now(),
-              tokenUsage: null,
-            }}
-            isStreaming
-          />
-        )}
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 py-4 md:py-6">
+        <div className="max-w-3xl mx-auto space-y-5 md:space-y-6">
+          {currentMessages.length === 0 && (
+            <div className="text-center py-16 md:py-24">
+              <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
+                <MessageSquare size={24} className="text-accent" />
+              </div>
+              <p className="text-sm text-text-muted">Start a conversation</p>
+            </div>
+          )}
+          {currentMessages.map((msg) => (
+            <MessageBubble key={msg.id} message={msg} />
+          ))}
+          {isStreaming && streamingContent && activeConversationId && !currentMessages.some(
+            (m) => m.role === 'assistant' && m.content === streamingContent
+          ) && (
+            <MessageBubble
+              message={{
+                id: 'streaming',
+                conversationId: activeConversationId,
+                role: 'assistant',
+                content: streamingContent,
+                attachments: [],
+                toolCalls: [],
+                toolResults: [],
+                timestamp: Date.now(),
+                tokenUsage: null,
+              }}
+              isStreaming
+            />
+          )}
+        </div>
       </div>
 
       <MessageInput
