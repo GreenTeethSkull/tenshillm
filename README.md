@@ -104,6 +104,7 @@
 | Backend | Rust | High-performance native backend |
 | HTTP | reqwest + tauri-plugin-http | HTTP requests with CORS bypass |
 | Storage | localStorage | Client-side persistence |
+| Font | Inter Variable | Self-hosted via `@fontsource-variable/inter` (woff2, CSP-compatible) |
 
 ---
 
@@ -307,6 +308,15 @@ For vision models, images are sent as base64:
 ---
 
 ## Troubleshooting
+
+### Desktop build fails with "failed to read plugin permissions"
+If `bun run tauri dev` fails with a path containing a stale directory name (e.g. `llm-studio/src-tauri/...`), the Tauri build cache holds absolute paths from a previous project location. Mobile targets (Android/iOS) keep working because they use separate target directories.
+
+Fix it by clearing only the desktop cache:
+```bash
+rm -rf src-tauri/target/debug src-tauri/target/flycheck0
+```
+Then re-run `bun run tauri dev` — the recompile regenerates permission files with the correct paths. See [AGENTS.md](AGENTS.md#desktop-build-fails-with-failed-to-read-plugin-permissions) for details.
 
 ### "url not allowed on the configured scope"
 The HTTP plugin scope needs to be configured in `src-tauri/capabilities/default.json`. Ensure it includes:
