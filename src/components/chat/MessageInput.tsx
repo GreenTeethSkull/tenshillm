@@ -100,10 +100,12 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
                 )}
                 <button
                   onClick={() => removeAttachment(att.id)}
+                  aria-label={`Remove attachment ${att.name}`}
                   className="absolute top-1 right-1 p-1 rounded-full
-                    bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    bg-black/60 text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100
+                    active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                 >
-                  <X size={12} />
+                  <X size={12} aria-hidden="true" />
                 </button>
               </div>
             ))}
@@ -120,15 +122,17 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
                 multiple
                 className="hidden"
                 onChange={handleFileSelect}
+                aria-label="Image upload"
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
+                aria-label="Attach image"
                 className="p-3 rounded-xl bg-surface border border-border
-                  text-text-muted hover:text-text hover:bg-surface-hover
-                  transition-colors shrink-0"
+                  text-text-muted hover:text-text hover:bg-surface-hover active:scale-95
+                  transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0"
                 title="Attach image"
               >
-                <ImagePlus size={18} />
+                <ImagePlus size={18} aria-hidden="true" />
               </button>
             </>
           )}
@@ -142,11 +146,13 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
               rows={1}
+              aria-label="Message input"
               className="w-full resize-none rounded-2xl border border-border
                 bg-surface px-4 py-3 text-[15px] text-text
                 placeholder:text-text-muted
                 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/60
-                transition-all leading-relaxed"
+                transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
+                leading-relaxed text-pretty"
               style={{ maxHeight: '200px' }}
             />
           </div>
@@ -154,23 +160,26 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
           {isStreaming ? (
             <button
               onClick={onStop}
+              aria-label="Stop generation"
               className="p-3 rounded-xl bg-error text-white
-                hover:bg-error/80 active:scale-[0.95] transition-all shrink-0"
+                hover:bg-error/80 active:scale-95 transition-all duration-[var(--duration-base)]
+                ease-[var(--ease-out)] shrink-0 shadow-sm"
               title="Stop"
             >
-              <Square size={18} />
+              <Square size={18} aria-hidden="true" />
             </button>
           ) : (
             <button
               onClick={handleSend}
               disabled={!content.trim() && attachments.length === 0}
+              aria-label="Send message"
               className="p-3 rounded-xl bg-accent text-white
-                hover:bg-accent-hover active:scale-[0.95]
+                hover:bg-accent-hover active:scale-95
                 disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100
-                transition-all shrink-0"
+                transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0 shadow-sm"
               title="Send"
             >
-              <Send size={18} />
+              <Send size={18} aria-hidden="true" />
             </button>
           )}
         </div>

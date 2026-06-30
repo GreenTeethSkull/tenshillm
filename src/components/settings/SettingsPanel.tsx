@@ -170,38 +170,51 @@ export function SettingsPanel() {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/60 backdrop-blur-sm modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Settings dialog"
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+    >
       <div
-        className="bg-bg border-border flex flex-col shadow-2xl
-          w-full h-full sm:h-auto sm:max-w-2xl sm:max-h-[90vh] sm:rounded-2xl sm:border sm:mx-4"
+        className="bg-bg flex flex-col shadow-xl modal-shell
+          w-full h-full sm:h-auto sm:max-w-2xl sm:max-h-[90vh] sm:rounded-2xl sm:border sm:border-border sm:mx-4
+          overflow-hidden"
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border"
           style={{ paddingTop: 'max(16px, var(--safe-top))' }}
         >
-          <h2 className="text-lg font-semibold text-text">Settings</h2>
+          <h2 className="text-lg font-semibold text-text tracking-tight">Settings</h2>
           <button
             onClick={handleClose}
-            className="p-2 -mr-1 rounded-xl hover:bg-surface-hover text-text-muted hover:text-text transition-colors"
+            aria-label="Close settings"
+            className="p-2 -mr-1 rounded-xl hover:bg-surface-hover active:scale-90 text-text-muted
+              hover:text-text transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0"
           >
-            <X size={20} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 px-4 pt-3 pb-1 overflow-x-auto">
+        {/* Tabs — segmented control style */}
+        <div className="flex gap-1 px-4 pt-3 pb-2 overflow-x-auto" role="tablist" aria-label="Settings tabs">
           {tabs.map((t) => (
             <button
               key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
+                whitespace-nowrap transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
+                active:scale-95 ${
                 tab === t.id
                   ? 'bg-accent text-white shadow-sm'
                   : 'text-text-secondary hover:bg-surface-hover'
               }`}
             >
-              <t.icon size={16} />
+              <t.icon size={14} aria-hidden="true" />
               {t.label}
             </button>
           ))}
@@ -216,9 +229,10 @@ export function SettingsPanel() {
                 <button
                   onClick={() => setShowProviderForm(true)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl
-                    bg-accent text-white text-sm hover:bg-accent-hover active:scale-[0.98] transition-all"
+                    bg-accent text-white text-sm hover:bg-accent-hover active:scale-95
+                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shadow-sm shrink-0"
                 >
-                  <Plus size={14} /> Add Provider
+                  <Plus size={14} aria-hidden="true" /> Add Provider
                 </button>
               </div>
 
@@ -227,43 +241,53 @@ export function SettingsPanel() {
                   <input
                     value={providerName}
                     onChange={(e) => setProviderName(e.target.value)}
+                    aria-label="Provider name"
                     placeholder="Provider name (e.g. OpenRouter)"
                     className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                   />
                   <input
                     value={providerUrl}
                     onChange={(e) => setProviderUrl(e.target.value)}
+                    aria-label="Base URL"
                     placeholder="Base URL (e.g. https://openrouter.ai/api/v1)"
                     className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                   />
                   <div className="relative">
                     <input
                       type={showKey ? 'text' : 'password'}
                       value={providerKey}
                       onChange={(e) => setProviderKey(e.target.value)}
+                      aria-label="API key"
                       placeholder="API Key"
                       className="w-full px-4 py-2.5 pr-12 rounded-xl bg-bg border border-border
-                        text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                        text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                        transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                     />
                     <button
                       onClick={() => setShowKey(!showKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text"
+                      aria-label={showKey ? 'Hide API key' : 'Show API key'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text
+                        transition-colors duration-[var(--duration-base)] active:scale-90"
                     >
-                      {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showKey ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
                     </button>
                   </div>
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={handleAddProvider}
-                      className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm hover:bg-accent-hover"
+                      className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm hover:bg-accent-hover
+                        active:scale-95 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                     >
                       Save
                     </button>
                     <button
                       onClick={() => setShowProviderForm(false)}
-                      className="px-4 py-2.5 rounded-xl bg-bg border border-border text-text-secondary text-sm hover:bg-surface-hover"
+                      className="px-4 py-2.5 rounded-xl bg-bg border border-border text-text-secondary text-sm
+                        hover:bg-surface-hover active:scale-95 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                     >
                       Cancel
                     </button>
@@ -305,9 +329,11 @@ export function SettingsPanel() {
                         removeProvider(p.id);
                         saveSettings();
                       }}
-                      className="p-2 rounded-xl hover:bg-error/10 text-text-muted hover:text-error shrink-0"
+                      aria-label={`Delete provider ${p.name}`}
+                      className="p-2 rounded-xl hover:bg-error/10 text-text-muted hover:text-error
+                        active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={16} aria-hidden="true" />
                     </button>
                   </div>
 
@@ -338,19 +364,23 @@ export function SettingsPanel() {
                               setActiveProvider(p.id);
                               saveSettings();
                             }}
-                            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted hover:text-accent"
+                            aria-label={`Set ${m.displayName} as active model`}
+                            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted hover:text-accent
+                              active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                             title="Set as active model"
                           >
-                            <Cpu size={14} />
+                            <Cpu size={14} aria-hidden="true" />
                           </button>
                           <button
                             onClick={() => {
                               removeModelFromProvider(p.id, m.id);
                               saveSettings();
                             }}
-                            className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error"
+                            aria-label={`Delete model ${m.displayName}`}
+                            className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error
+                              active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={14} aria-hidden="true" />
                           </button>
                         </div>
                       </div>
@@ -361,33 +391,37 @@ export function SettingsPanel() {
                         <input
                           value={modelId}
                           onChange={(e) => setModelId(e.target.value)}
+                          aria-label="Model ID"
                           placeholder="Model ID (e.g. gpt-4o)"
                           className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border
-                            text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                            text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                            transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                         />
                         <input
                           value={modelName}
                           onChange={(e) => setModelName(e.target.value)}
+                          aria-label="Display name"
                           placeholder="Display name (e.g. GPT-4o)"
                           className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border
-                            text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                            text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                            transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                         />
                         <div className="flex gap-5">
-                          <label className="flex items-center gap-2 text-sm text-text-secondary">
+                          <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
                             <input
                               type="checkbox"
                               checked={modelVision}
                               onChange={(e) => setModelVision(e.target.checked)}
-                              className="rounded w-4 h-4"
+                              className="rounded w-4 h-4 accent-accent"
                             />
                             Vision
                           </label>
-                          <label className="flex items-center gap-2 text-sm text-text-secondary">
+                          <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
                             <input
                               type="checkbox"
                               checked={modelTools}
                               onChange={(e) => setModelTools(e.target.checked)}
-                              className="rounded w-4 h-4"
+                              className="rounded w-4 h-4 accent-accent"
                             />
                             Tools
                           </label>
@@ -396,30 +430,38 @@ export function SettingsPanel() {
                           <input
                             value={modelContext}
                             onChange={(e) => setModelContext(e.target.value)}
+                            aria-label="Context window"
                             placeholder="Context window"
                             type="number"
                             className="w-1/2 px-4 py-2.5 rounded-xl bg-surface border border-border
-                              text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                              text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                           />
                           <input
                             value={modelMaxOutput}
                             onChange={(e) => setModelMaxOutput(e.target.value)}
+                            aria-label="Max output tokens"
                             placeholder="Max output tokens"
                             type="number"
                             className="w-1/2 px-4 py-2.5 rounded-xl bg-surface border border-border
-                              text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                              text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                           />
                         </div>
                         <div className="flex gap-2 pt-1">
                           <button
                             onClick={() => handleAddModel(p.id)}
-                            className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm"
+                            className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm
+                              hover:bg-accent-hover active:scale-95
+                              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                           >
                             Add
                           </button>
                           <button
                             onClick={() => setShowModelForm(null)}
-                            className="px-4 py-2.5 rounded-xl bg-surface border border-border text-text-secondary text-sm"
+                            className="px-4 py-2.5 rounded-xl bg-surface border border-border text-text-secondary text-sm
+                              hover:bg-surface-hover active:scale-95
+                              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                           >
                             Cancel
                           </button>
@@ -428,11 +470,13 @@ export function SettingsPanel() {
                     ) : (
                       <button
                         onClick={() => setShowModelForm(p.id)}
+                        aria-label="Add new model"
                         className="w-full flex items-center justify-center gap-1.5 px-3 py-3
                           rounded-xl border border-dashed border-border text-text-muted
-                          text-sm hover:border-accent hover:text-accent transition-colors"
+                          text-sm hover:border-accent hover:text-accent hover:bg-accent/5
+                          transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                       >
-                        <Plus size={14} /> Add Model
+                        <Plus size={14} aria-hidden="true" /> Add Model
                       </button>
                     )}
                   </div>
@@ -448,14 +492,17 @@ export function SettingsPanel() {
                 {THEMES.map((t) => (
                   <button
                     key={t.id}
+                    aria-pressed={theme === t.id}
+                    aria-label={`Theme ${t.name}`}
                     onClick={() => {
                       setTheme(t.id);
                       saveSettings();
                     }}
-                    className={`flex items-center gap-3.5 p-4 rounded-2xl border transition-all text-left ${
+                    className={`flex items-center gap-3.5 p-4 rounded-2xl border transition-all duration-[var(--duration-base)]
+                      ease-[var(--ease-out)] text-left active:scale-[0.98] ${
                       theme === t.id
                         ? 'border-accent ring-2 ring-accent/30 bg-accent/5'
-                        : 'border-border hover:border-accent/40 bg-surface'
+                        : 'border-border hover:border-accent/40 bg-surface hover:bg-surface-hover'
                     }`}
                   >
                     <div className="flex gap-1.5 shrink-0">
@@ -490,9 +537,10 @@ export function SettingsPanel() {
                 <button
                   onClick={() => setShowMcpForm(true)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl
-                    bg-accent text-white text-sm hover:bg-accent-hover active:scale-[0.98] transition-all"
+                    bg-accent text-white text-sm hover:bg-accent-hover active:scale-95
+                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shadow-sm shrink-0"
                 >
-                  <Plus size={14} /> Add
+                  <Plus size={14} aria-hidden="true" /> Add
                 </button>
               </div>
 
@@ -501,35 +549,45 @@ export function SettingsPanel() {
                   <input
                     value={mcpName}
                     onChange={(e) => setMcpName(e.target.value)}
+                    aria-label="Server name"
                     placeholder="Server name"
                     className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                   />
                   <input
                     value={mcpUrl}
                     onChange={(e) => setMcpUrl(e.target.value)}
+                    aria-label="Server URL"
                     placeholder="Server URL (e.g. https://mcp.example.com/mcp)"
                     className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                   />
                   <textarea
                     value={mcpHeaders}
                     onChange={(e) => setMcpHeaders(e.target.value)}
+                    aria-label="Headers JSON"
                     placeholder='Headers JSON (e.g. {"Authorization": "Bearer token"})'
                     rows={2}
                     className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40 resize-none font-mono"
+                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] resize-none font-mono"
                   />
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={handleAddMcp}
-                      className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm"
+                      className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm
+                        hover:bg-accent-hover active:scale-95
+                        transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                     >
                       Save
                     </button>
                     <button
                       onClick={() => setShowMcpForm(false)}
-                      className="px-4 py-2.5 rounded-xl bg-bg border border-border text-text-secondary text-sm"
+                      className="px-4 py-2.5 rounded-xl bg-bg border border-border text-text-secondary text-sm
+                        hover:bg-surface-hover active:scale-95
+                        transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                     >
                       Cancel
                     </button>
@@ -563,7 +621,10 @@ export function SettingsPanel() {
                           updateMcpServer(srv.id, { isEnabled: !srv.isEnabled });
                           saveSettings();
                         }}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                        aria-pressed={srv.isEnabled}
+                        aria-label={`Toggle ${srv.name}`}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium
+                          transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] active:scale-95 ${
                           srv.isEnabled
                             ? 'bg-success/20 text-success'
                             : 'bg-bg border border-border text-text-muted'
@@ -576,9 +637,11 @@ export function SettingsPanel() {
                           removeMcpServer(srv.id);
                           saveSettings();
                         }}
-                        className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error"
+                        aria-label={`Delete ${srv.name}`}
+                        className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error
+                          active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={14} aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -611,12 +674,16 @@ export function SettingsPanel() {
                     setSearchConfig({ ...searchConfig, enabled: !searchConfig.enabled });
                     saveSettings();
                   }}
-                  className={`w-11 h-7 rounded-full transition-colors relative ${
+                  aria-pressed={searchConfig.enabled}
+                  aria-label="Toggle web search"
+                  className={`w-11 h-7 rounded-full relative shrink-0
+                    transition-colors duration-[var(--duration-base)] ease-[var(--ease-out)] active:scale-95 ${
                     searchConfig.enabled ? 'bg-accent' : 'bg-border'
                   }`}
                 >
                   <div
-                    className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform absolute top-1 ${
+                    className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-1
+                      transition-transform duration-[var(--duration-base)] ease-[var(--ease-out)] ${
                       searchConfig.enabled ? 'translate-x-5' : 'translate-x-1'
                     }`}
                   />
@@ -626,6 +693,7 @@ export function SettingsPanel() {
               <div>
                 <label className="text-sm text-text-secondary block mb-2">Provider</label>
                 <select
+                  aria-label="Search provider"
                   value={searchConfig.provider}
                   onChange={(e) => {
                     setSearchConfig({
@@ -635,7 +703,8 @@ export function SettingsPanel() {
                     saveSettings();
                   }}
                   className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border
-                    text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                    text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                 >
                   <option value="tavily">Tavily (Recommended)</option>
                   <option value="serpapi">SerpAPI</option>
@@ -649,6 +718,7 @@ export function SettingsPanel() {
                   <label className="text-sm text-text-secondary block mb-2">API Key</label>
                   <input
                     type="password"
+                    aria-label="Search API key"
                     value={searchConfig.apiKey}
                     onChange={(e) => {
                       setSearchConfig({ ...searchConfig, apiKey: e.target.value });
@@ -656,7 +726,8 @@ export function SettingsPanel() {
                     }}
                     placeholder="Enter your API key"
                     className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                   />
                 </div>
               )}
@@ -667,6 +738,7 @@ export function SettingsPanel() {
                 </label>
                 <input
                   type="range"
+                  aria-label="Maximum search results"
                   min={1}
                   max={10}
                   value={searchConfig.maxResults}
@@ -692,9 +764,10 @@ export function SettingsPanel() {
                 <button
                   onClick={() => setShowSkillForm(true)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl
-                    bg-accent text-white text-sm hover:bg-accent-hover active:scale-[0.98] transition-all"
+                    bg-accent text-white text-sm hover:bg-accent-hover active:scale-95
+                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shadow-sm shrink-0"
                 >
-                  <Plus size={14} /> Add
+                  <Plus size={14} aria-hidden="true" /> Add
                 </button>
               </div>
 
@@ -703,35 +776,45 @@ export function SettingsPanel() {
                   <input
                     value={skillName}
                     onChange={(e) => setSkillName(e.target.value)}
+                    aria-label="Skill name"
                     placeholder="Skill name"
                     className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                   />
                   <input
                     value={skillDesc}
                     onChange={(e) => setSkillDesc(e.target.value)}
+                    aria-label="Skill description"
                     placeholder="Short description"
                     className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40"
+                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                   />
                   <textarea
                     value={skillContent}
                     onChange={(e) => setSkillContent(e.target.value)}
+                    aria-label="Skill content"
                     placeholder="Skill content (Markdown). This will be injected into the system prompt."
                     rows={6}
                     className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40 resize-none font-mono"
+                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] resize-none font-mono"
                   />
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={handleAddSkill}
-                      className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm"
+                      className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm
+                        hover:bg-accent-hover active:scale-95
+                        transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                     >
                       Save
                     </button>
                     <button
                       onClick={() => setShowSkillForm(false)}
-                      className="px-4 py-2.5 rounded-xl bg-bg border border-border text-text-secondary text-sm"
+                      className="px-4 py-2.5 rounded-xl bg-bg border border-border text-text-secondary text-sm
+                        hover:bg-surface-hover active:scale-95
+                        transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                     >
                       Cancel
                     </button>
@@ -763,7 +846,10 @@ export function SettingsPanel() {
                           updateAgentSkill(skill.id, { isEnabled: !skill.isEnabled });
                           saveSettings();
                         }}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                        aria-pressed={skill.isEnabled}
+                        aria-label={`Toggle ${skill.name}`}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium
+                          transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] active:scale-95 ${
                           skill.isEnabled
                             ? 'bg-accent-muted text-accent'
                             : 'bg-bg border border-border text-text-muted'
@@ -776,9 +862,11 @@ export function SettingsPanel() {
                           removeAgentSkill(skill.id);
                           saveSettings();
                         }}
-                        className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error"
+                        aria-label={`Delete skill ${skill.name}`}
+                        className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error
+                          active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={14} aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -796,9 +884,11 @@ export function SettingsPanel() {
                     setDefaultSystemPrompt(e.target.value);
                     saveSettings();
                   }}
+                  aria-label="Default system prompt"
                   rows={4}
                   className="w-full px-4 py-3 rounded-xl bg-surface border border-border
-                    text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40 resize-none leading-relaxed"
+                    text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
+                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] resize-none leading-relaxed"
                 />
               </div>
             </div>
@@ -813,9 +903,10 @@ export function SettingsPanel() {
           <button
             onClick={handleClose}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl
-              bg-accent text-white text-sm font-medium hover:bg-accent-hover active:scale-[0.98] transition-all"
+              bg-accent text-white text-sm font-medium hover:bg-accent-hover active:scale-95
+              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shadow-sm"
           >
-            <Save size={16} /> Save & Close
+            <Save size={16} aria-hidden="true" /> Save & Close
           </button>
         </div>
       </div>

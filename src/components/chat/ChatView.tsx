@@ -200,37 +200,45 @@ export function ChatView() {
 
   if (!activeConversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-text-muted px-6">
+      <div className="flex-1 flex flex-col items-center justify-center text-text-muted px-6 min-h-dvh">
         {!sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
             className="absolute p-2.5 rounded-xl
               bg-surface/90 backdrop-blur-sm border border-border
-              hover:bg-surface-hover text-text-secondary
-              transition-colors lg:hidden"
+              hover:bg-surface-hover active:scale-90 text-text-secondary
+              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
+              lg:hidden"
             style={{
               top: 'max(12px, var(--safe-top))',
               left: 'max(12px, var(--safe-left))',
             }}
           >
-            <PanelLeftOpen size={20} />
+            <PanelLeftOpen size={18} aria-hidden="true" />
           </button>
         )}
-        <div className="flex flex-col items-center max-w-xs text-center">
-          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-5">
-            <Cpu size={32} className="text-accent" />
+        <div className="flex flex-col items-center max-w-sm text-center">
+          <div className="grid place-items-center size-16 rounded-2xl bg-accent/10 text-accent mb-5">
+            <Cpu size={32} className="text-accent" aria-hidden="true" />
           </div>
-          <h2 className="text-xl font-semibold text-text mb-2">TenshiLLM</h2>
-          <p className="text-sm text-text-muted mb-8 leading-relaxed">
-            Select a conversation from the sidebar or start a new one
+          <h2 className="text-xl font-semibold text-text mb-2 tracking-tight">TenshiLLM</h2>
+          <p className="text-sm text-text-muted mb-8 leading-relaxed text-pretty max-w-[280px]">
+            Connect any OpenAI-compatible provider and start chatting. Your data stays on this device.
           </p>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-medium
-              hover:bg-accent-hover active:scale-[0.98] transition-all"
-          >
-            Configure Provider
-          </button>
+          <div className="flex flex-col gap-2 w-full max-w-[260px]">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-medium
+                hover:bg-accent-hover active:scale-[0.98] transition-all duration-[var(--duration-base)]
+                ease-[var(--ease-out)] shadow-sm"
+            >
+              Configure provider
+            </button>
+            <p className="text-xs text-text-muted mt-2">
+              Tip: open the sidebar to start a new chat once a provider is set.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -238,36 +246,41 @@ export function ChatView() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Header */}
+      {/* Header — sticky with safe-area and motion-safe blur */}
       <header
-        className="flex items-center justify-between px-4 md:px-6 border-b border-border bg-bg/80 backdrop-blur-sm"
+        className="flex items-center justify-between px-4 md:px-6 border-b border-border bg-bg/70 backdrop-blur-md supports-[backdrop-filter]:bg-bg/60"
         style={{ paddingTop: 'max(8px, var(--safe-top))' }}
       >
         <div className="flex items-center gap-3 min-w-0 py-3">
           {!sidebarOpen && (
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 -ml-1 rounded-xl hover:bg-surface-hover text-text-muted
-                hover:text-text transition-colors shrink-0 lg:hidden"
+              aria-label="Open sidebar"
+              className="p-2 -ml-1 rounded-xl hover:bg-surface-hover active:scale-90 text-text-muted
+                hover:text-text transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
+                shrink-0 lg:hidden"
             >
-              <PanelLeftOpen size={20} />
+              <PanelLeftOpen size={18} aria-hidden="true" />
             </button>
           )}
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-text truncate leading-snug">
+            <h2 className="text-base font-semibold text-text truncate leading-snug">
               {activeConversation.title}
             </h2>
-            <p className="text-xs text-text-muted truncate mt-0.5">
+            <p className="text-xs text-text-muted truncate mt-0.5 flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-success/80 shrink-0" aria-hidden="true" />
               {provider?.name} / {model?.displayName}
             </p>
           </div>
         </div>
         <button
           onClick={() => setSettingsOpen(true)}
-          className="p-2 -mr-1 rounded-xl hover:bg-surface-hover text-text-muted
-            hover:text-text transition-colors"
+          aria-label="Open settings"
+          className="p-2 -mr-1 rounded-xl hover:bg-surface-hover active:scale-90 text-text-muted
+            hover:text-text transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
+            shrink-0"
         >
-          <Settings size={20} />
+          <Settings size={18} aria-hidden="true" />
         </button>
       </header>
 
@@ -276,10 +289,11 @@ export function ChatView() {
         <div className="max-w-3xl mx-auto space-y-5 md:space-y-6">
           {currentMessages.length === 0 && (
             <div className="text-center py-16 md:py-24">
-              <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
-                <MessageSquare size={24} className="text-accent" />
+              <div className="grid place-items-center size-14 rounded-2xl bg-accent/10 text-accent mx-auto mb-4">
+                <MessageSquare size={22} aria-hidden="true" />
               </div>
-              <p className="text-sm text-text-muted">Start a conversation</p>
+              <p className="text-sm font-medium text-text-secondary mb-1">Start a conversation</p>
+              <p className="text-xs text-text-muted">Type a message below to begin</p>
             </div>
           )}
           {currentMessages.map((msg) => (

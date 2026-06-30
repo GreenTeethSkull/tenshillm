@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { User, Bot, Copy, Check } from 'lucide-react';
+import { User, Bot, Copy, Check, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import type { Message } from '../../types';
 
@@ -22,37 +22,40 @@ export function MessageBubble({ message, isStreaming }: Props) {
 
   if (isTool) {
     return (
-      <div className="flex gap-3 md:gap-4">
-        <div className="w-8 h-8 rounded-full bg-warning/15 flex items-center justify-center shrink-0 mt-0.5">
-          <Bot size={15} className="text-warning" />
+      <article className="flex gap-3 md:gap-4" aria-label="Tool response">
+        <div className="grid place-items-center size-8 rounded-lg bg-warning/15 text-warning shrink-0 mt-0.5">
+          <Wrench size={16} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium text-text-muted mb-1.5">Tool Result</div>
-          <pre className="bg-code-bg text-text-secondary text-xs p-4 rounded-xl overflow-x-auto leading-relaxed">
+          <div className="text-[11px] font-semibold text-text-muted mb-1.5 uppercase tracking-wider">Tool Result</div>
+          <pre className="bg-code-bg text-text-secondary text-xs p-4 rounded-xl overflow-x-auto leading-relaxed font-mono">
             {message.content}
           </pre>
         </div>
-      </div>
+      </article>
     );
   }
 
   return (
     <div className={`flex gap-3 md:gap-4 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-          isUser ? 'bg-user-bubble' : 'bg-accent-muted'
+        className={`grid place-items-center size-8 rounded-lg shrink-0 mt-0.5 ${
+          isUser ? 'bg-user-bubble text-user-bubble-text' : 'bg-accent-muted text-accent'
         }`}
+        aria-hidden="true"
       >
         {isUser ? (
-          <User size={15} className="text-user-bubble-text" />
+          <User size={16} aria-hidden="true" />
         ) : (
-          <Bot size={15} className="text-accent" />
+          <Bot size={16} aria-hidden="true" />
         )}
       </div>
 
       <div className={`min-w-0 flex-1 ${isUser ? 'flex flex-col items-end' : ''}`}>
         <div
-          className={`group relative rounded-2xl px-4 py-3 md:px-5 md:py-3.5 max-w-[85%] sm:max-w-[80%] ${
+          className={`group relative rounded-2xl px-4 py-3 md:px-5 md:py-3.5
+            max-w-[85%] sm:max-w-[80%] md:max-w-[75%]
+            shadow-sm ${
             isUser
               ? 'bg-user-bubble text-user-bubble-text'
               : 'bg-assistant-bubble text-assistant-bubble-text'
@@ -80,7 +83,7 @@ export function MessageBubble({ message, isStreaming }: Props) {
           )}
 
           {isUser ? (
-            <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
+            <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words text-pretty">{message.content}</p>
           ) : (
             <div className="markdown-body text-[15px]">
               <ReactMarkdown
@@ -105,29 +108,39 @@ export function MessageBubble({ message, isStreaming }: Props) {
             </div>
           )}
 
-          {isStreaming && (
-            <span className="inline-block w-2 h-4 bg-accent animate-pulse ml-0.5 rounded-sm" />
+          {isStreaming && !message.content && (
+            <span className="thinking-dots" aria-label="Assistant is thinking">
+              <span />
+              <span />
+              <span />
+            </span>
           )}
 
           {!isUser && message.content && (
             <button
               onClick={handleCopy}
-              className="absolute -right-1 -top-1 sm:opacity-0 sm:group-hover:opacity-100
-                p-2 rounded-xl bg-surface border border-border
-                text-text-muted hover:text-text transition-all shadow-sm"
+              aria-label={copied ? 'Copied to clipboard' : 'Copy message to clipboard'}
+              className="absolute -right-2 -top-2 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100
+                grid place-items-center size-7 rounded-lg
+                bg-surface border border-border
+                text-text-muted hover:text-text active:scale-90
+                transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shadow-sm"
               title="Copy"
             >
-              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
             </button>
           )}
         </div>
 
-        <div className={`text-[11px] text-text-muted mt-1.5 px-1 ${isUser ? 'text-right' : ''}`}>
+        <time
+          className={`text-[11px] text-text-muted mt-1.5 px-1 tabular ${isUser ? 'text-right' : ''}`}
+          dateTime={new Date(message.timestamp).toISOString()}
+        >
           {new Date(message.timestamp).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
           })}
-        </div>
+        </time>
       </div>
     </div>
   );
