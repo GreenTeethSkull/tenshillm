@@ -62,8 +62,8 @@ export function CleanupPanel() {
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border"
-          style={{ paddingTop: 'max(16px, var(--safe-top))' }}
+          className="flex items-center justify-between px-6 py-5 border-b border-border"
+          style={{ paddingTop: 'max(20px, var(--safe-top))' }}
         >
           <h2 className="text-lg font-semibold text-text flex items-center gap-2.5">
             <Trash2 size={20} className="text-error" aria-hidden="true" />
@@ -75,11 +75,11 @@ export function CleanupPanel() {
             className="p-2 -mr-1 rounded-xl hover:bg-surface-hover active:scale-90 text-text-muted
               hover:text-text transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0"
           >
-            <X size={20} aria-hidden="true" />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-4 rounded-2xl bg-surface border border-border">
@@ -233,8 +233,8 @@ export function CleanupPanel() {
 
         {/* Footer */}
         <div
-          className="px-5 sm:px-6 py-3.5 border-t border-border flex justify-end"
-          style={{ paddingBottom: 'max(12px, var(--safe-bottom))' }}
+          className="px-6 py-4 border-t border-border flex justify-end"
+          style={{ paddingBottom: 'max(16px, var(--safe-bottom))' }}
         >
           <button
             onClick={() => setCleanupOpen(false)}

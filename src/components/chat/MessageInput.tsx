@@ -74,36 +74,40 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
+  const canSend = content.trim().length > 0 || attachments.length > 0;
+
   return (
     <div
-      className="border-t border-border bg-bg/80 backdrop-blur-sm"
-      style={{ paddingBottom: 'max(12px, var(--safe-bottom))' }}
+      className="border-t border-border bg-bg/80 backdrop-blur-md supports-[backdrop-filter]:bg-bg/70"
+      style={{ paddingBottom: 'max(16px, var(--safe-bottom))' }}
     >
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 pt-3 pb-1">
+      <div className="max-w-3xl mx-auto px-4 md:px-6 pt-4 pb-2">
+        {/* Attachments preview */}
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
             {attachments.map((att) => (
               <div
                 key={att.id}
-                className="relative group rounded-xl overflow-hidden border border-border"
+                className="relative rounded-xl overflow-hidden border border-border group"
               >
                 {att.mimeType.startsWith('image/') ? (
                   <img
                     src={`data:${att.mimeType};base64,${att.base64Data}`}
                     alt={att.name}
-                    className="w-20 h-20 object-cover"
+                    className="size-20 object-cover"
                   />
                 ) : (
-                  <div className="w-20 h-20 flex items-center justify-center bg-surface text-xs text-text-muted p-2 text-center">
+                  <div className="size-20 flex items-center justify-center bg-surface text-xs text-text-muted p-2 text-center">
                     {att.name}
                   </div>
                 )}
                 <button
                   onClick={() => removeAttachment(att.id)}
                   aria-label={`Remove attachment ${att.name}`}
-                  className="absolute top-1 right-1 p-1 rounded-full
-                    bg-black/60 text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100
-                    active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
+                  className="absolute top-1 right-1 grid place-items-center size-6 rounded-full
+                    bg-black/60 text-white
+                    hover:bg-black/80 active:scale-90
+                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
                 >
                   <X size={12} aria-hidden="true" />
                 </button>
@@ -112,7 +116,9 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
           </div>
         )}
 
-        <div className="flex items-end gap-2 md:gap-3">
+        {/* Input row */}
+        <div className="flex items-end gap-3">
+          {/* Image attach button */}
           {supportsVision && (
             <>
               <input
@@ -127,16 +133,18 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
               <button
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Attach image"
-                className="p-3 rounded-xl bg-surface border border-border
-                  text-text-muted hover:text-text hover:bg-surface-hover active:scale-95
-                  transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0"
-                title="Attach image"
+                className="grid place-items-center size-11 shrink-0 rounded-xl
+                  bg-surface border border-border text-text-muted
+                  hover:text-text hover:bg-surface-hover hover:border-accent/40
+                  active:scale-95
+                  transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
               >
-                <ImagePlus size={18} aria-hidden="true" />
+                <ImagePlus size={20} aria-hidden="true" />
               </button>
             </>
           )}
 
+          {/* Textarea — generous padding, clear boundaries */}
           <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
@@ -144,48 +152,49 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
               onChange={(e) => setContent(e.target.value)}
               onInput={handleInput}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder="Message TenshiLLM..."
               rows={1}
               aria-label="Message input"
               className="w-full resize-none rounded-2xl border border-border
-                bg-surface px-4 py-3 text-[15px] text-text
+                bg-surface px-4 py-3.5 text-[15px] text-text
                 placeholder:text-text-muted
-                focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/60
+                focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent
                 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
-                leading-relaxed text-pretty"
+                leading-relaxed text-pretty min-h-[48px]"
               style={{ maxHeight: '200px' }}
             />
           </div>
 
+          {/* Send / Stop button — 44px circle, prominent */}
           {isStreaming ? (
             <button
               onClick={onStop}
               aria-label="Stop generation"
-              className="p-3 rounded-xl bg-error text-white
-                hover:bg-error/80 active:scale-95 transition-all duration-[var(--duration-base)]
-                ease-[var(--ease-out)] shrink-0 shadow-sm"
-              title="Stop"
+              className="grid place-items-center size-11 shrink-0 rounded-full
+                bg-error text-white shadow-sm
+                hover:bg-error/90 active:scale-95
+                transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
             >
-              <Square size={18} aria-hidden="true" />
+              <Square size={18} aria-hidden="true" fill="currentColor" />
             </button>
           ) : (
             <button
               onClick={handleSend}
-              disabled={!content.trim() && attachments.length === 0}
+              disabled={!canSend}
               aria-label="Send message"
-              className="p-3 rounded-xl bg-accent text-white
+              className="grid place-items-center size-11 shrink-0 rounded-full
+                bg-accent text-white shadow-sm
                 hover:bg-accent-hover active:scale-95
                 disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100
-                transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0 shadow-sm"
-              title="Send"
+                transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
             >
               <Send size={18} aria-hidden="true" />
             </button>
           )}
         </div>
 
-        <p className="text-[11px] text-text-muted text-center mt-2 px-2">
-          Shift+Enter for new line
+        <p className="text-[11px] text-text-muted text-center mt-2.5">
+          Press <kbd className="px-1 py-0.5 rounded bg-surface border border-border text-[10px] font-mono">Enter</kbd> to send · <kbd className="px-1 py-0.5 rounded bg-surface border border-border text-[10px] font-mono">Shift+Enter</kbd> for new line
         </p>
       </div>
     </div>

@@ -184,8 +184,8 @@ export function SettingsPanel() {
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border"
-          style={{ paddingTop: 'max(16px, var(--safe-top))' }}
+          className="flex items-center justify-between px-6 py-5 border-b border-border"
+          style={{ paddingTop: 'max(20px, var(--safe-top))' }}
         >
           <h2 className="text-lg font-semibold text-text tracking-tight">Settings</h2>
           <button
@@ -199,14 +199,14 @@ export function SettingsPanel() {
         </div>
 
         {/* Tabs — segmented control style */}
-        <div className="flex gap-1 px-4 pt-3 pb-2 overflow-x-auto" role="tablist" aria-label="Settings tabs">
+        <div className="flex gap-1 px-6 pt-4 pb-3 overflow-x-auto" role="tablist" aria-label="Settings tabs">
           {tabs.map((t) => (
             <button
               key={t.id}
               role="tab"
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium
                 whitespace-nowrap transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
                 active:scale-95 ${
                 tab === t.id
@@ -221,7 +221,7 @@ export function SettingsPanel() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {tab === 'providers' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -897,8 +897,8 @@ export function SettingsPanel() {
 
         {/* Footer */}
         <div
-          className="px-5 sm:px-6 py-3.5 border-t border-border flex justify-end"
-          style={{ paddingBottom: 'max(12px, var(--safe-bottom))' }}
+          className="px-6 py-4 border-t border-border flex justify-end"
+          style={{ paddingBottom: 'max(16px, var(--safe-bottom))' }}
         >
           <button
             onClick={handleClose}

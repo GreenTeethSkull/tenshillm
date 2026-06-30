@@ -3,7 +3,7 @@ import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
-import { PanelLeftOpen, Settings, Cpu, MessageSquare } from 'lucide-react';
+import { PanelLeftOpen, Settings, Cpu } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import type { Message, Attachment } from '../../types';
 import { buildChatPayload, parseStreamChunk } from '../../lib/openai';
@@ -155,7 +155,7 @@ export function ChatView() {
         if (delta.reasoning_content) {
           fullReasoning += delta.reasoning_content;
           const displayContent = fullReasoning
-            ? `<details><summary>🤔 Thinking...</summary>\n\n${fullReasoning}\n\n</details>\n\n${fullContent}`
+            ? `<details><summary>Thinking</summary>\n\n${fullReasoning}\n\n</details>\n\n${fullContent}`
             : fullContent;
           setStreamingContent(fullContent || displayContent);
           updateLastAssistantMessage(activeConversationId, fullContent || displayContent);
@@ -200,45 +200,50 @@ export function ChatView() {
 
   if (!activeConversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-text-muted px-6 min-h-dvh">
-        {!sidebarOpen && (
+      <div className="flex-1 flex flex-col min-h-dvh">
+        {/* Header with menu button always visible */}
+        <header
+          className="flex items-center justify-between px-4 md:px-6 border-b border-border bg-bg/70 backdrop-blur-md"
+          style={{ paddingTop: 'max(12px, var(--safe-top))', paddingBottom: '12px' }}
+        >
           <button
             onClick={() => setSidebarOpen(true)}
             aria-label="Open sidebar"
-            className="absolute p-2.5 rounded-xl
-              bg-surface/90 backdrop-blur-sm border border-border
-              hover:bg-surface-hover active:scale-90 text-text-secondary
-              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
-              lg:hidden"
-            style={{
-              top: 'max(12px, var(--safe-top))',
-              left: 'max(12px, var(--safe-left))',
-            }}
+            className="p-2 -ml-1 rounded-lg hover:bg-surface-hover active:scale-90 text-text-secondary
+              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0"
           >
-            <PanelLeftOpen size={18} aria-hidden="true" />
+            <PanelLeftOpen size={20} aria-hidden="true" />
           </button>
-        )}
-        <div className="flex flex-col items-center max-w-sm text-center">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Open settings"
+            className="p-2 -mr-1 rounded-lg hover:bg-surface-hover active:scale-90 text-text-secondary
+              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0"
+          >
+            <Settings size={20} aria-hidden="true" />
+          </button>
+        </header>
+
+        {/* Hero empty state */}
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
           <div className="grid place-items-center size-16 rounded-2xl bg-accent/10 text-accent mb-5">
-            <Cpu size={32} className="text-accent" aria-hidden="true" />
+            <Cpu size={32} aria-hidden="true" />
           </div>
-          <h2 className="text-xl font-semibold text-text mb-2 tracking-tight">TenshiLLM</h2>
-          <p className="text-sm text-text-muted mb-8 leading-relaxed text-pretty max-w-[280px]">
-            Connect any OpenAI-compatible provider and start chatting. Your data stays on this device.
+          <h2 className="text-xl font-semibold text-text mb-3 tracking-tight">Welcome to TenshiLLM</h2>
+          <p className="text-sm text-text-muted leading-relaxed text-pretty max-w-[320px] mb-8">
+            Connect any OpenAI-compatible provider and start chatting. Your data stays on this device — no cloud, no tracking.
           </p>
-          <div className="flex flex-col gap-2 w-full max-w-[260px]">
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-medium
-                hover:bg-accent-hover active:scale-[0.98] transition-all duration-[var(--duration-base)]
-                ease-[var(--ease-out)] shadow-sm"
-            >
-              Configure provider
-            </button>
-            <p className="text-xs text-text-muted mt-2">
-              Tip: open the sidebar to start a new chat once a provider is set.
-            </p>
-          </div>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="px-6 py-2.5 rounded-xl bg-accent text-white text-sm font-medium
+              hover:bg-accent-hover active:scale-[0.98]
+              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shadow-sm"
+          >
+            Configure your first provider
+          </button>
+          <p className="text-xs text-text-muted mt-4">
+            Tip: open the sidebar with the menu icon to start a new chat.
+          </p>
         </div>
       </div>
     );
@@ -246,25 +251,24 @@ export function ChatView() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Header — sticky with safe-area and motion-safe blur */}
+      {/* Header — menu button always visible, no floating button */}
       <header
-        className="flex items-center justify-between px-4 md:px-6 border-b border-border bg-bg/70 backdrop-blur-md supports-[backdrop-filter]:bg-bg/60"
-        style={{ paddingTop: 'max(8px, var(--safe-top))' }}
+        className="flex items-center justify-between px-4 md:px-6 border-b border-border
+          bg-bg/70 backdrop-blur-md supports-[backdrop-filter]:bg-bg/60"
+        style={{ paddingTop: 'max(12px, var(--safe-top))', paddingBottom: '12px' }}
       >
-        <div className="flex items-center gap-3 min-w-0 py-3">
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open sidebar"
-              className="p-2 -ml-1 rounded-xl hover:bg-surface-hover active:scale-90 text-text-muted
-                hover:text-text transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
-                shrink-0 lg:hidden"
-            >
-              <PanelLeftOpen size={18} aria-hidden="true" />
-            </button>
-          )}
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold text-text truncate leading-snug">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+            className={`p-2 -ml-1 rounded-lg hover:bg-surface-hover active:scale-90
+              text-text-secondary transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
+              shrink-0 ${sidebarOpen ? 'lg:hidden' : ''}`}
+          >
+            <PanelLeftOpen size={20} aria-hidden="true" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-text truncate leading-snug tracking-tight">
               {activeConversation.title}
             </h2>
             <p className="text-xs text-text-muted truncate mt-0.5 flex items-center gap-1.5">
@@ -276,47 +280,48 @@ export function ChatView() {
         <button
           onClick={() => setSettingsOpen(true)}
           aria-label="Open settings"
-          className="p-2 -mr-1 rounded-xl hover:bg-surface-hover active:scale-90 text-text-muted
-            hover:text-text transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
-            shrink-0"
+          className="p-2 -mr-1 rounded-lg hover:bg-surface-hover active:scale-90 text-text-secondary
+            transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0"
         >
-          <Settings size={18} aria-hidden="true" />
+          <Settings size={20} aria-hidden="true" />
         </button>
       </header>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 py-4 md:py-6">
-        <div className="max-w-3xl mx-auto space-y-5 md:space-y-6">
+      {/* Messages — more breathing room */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 md:py-8">
           {currentMessages.length === 0 && (
-            <div className="text-center py-16 md:py-24">
+            <div className="text-center py-20">
               <div className="grid place-items-center size-14 rounded-2xl bg-accent/10 text-accent mx-auto mb-4">
-                <MessageSquare size={22} aria-hidden="true" />
+                <Cpu size={24} aria-hidden="true" />
               </div>
-              <p className="text-sm font-medium text-text-secondary mb-1">Start a conversation</p>
-              <p className="text-xs text-text-muted">Type a message below to begin</p>
+              <p className="text-base font-medium text-text mb-1">How can I help you today?</p>
+              <p className="text-sm text-text-muted">Type your message below to get started</p>
             </div>
           )}
-          {currentMessages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))}
-          {isStreaming && streamingContent && activeConversationId && !currentMessages.some(
-            (m) => m.role === 'assistant' && m.content === streamingContent
-          ) && (
-            <MessageBubble
-              message={{
-                id: 'streaming',
-                conversationId: activeConversationId,
-                role: 'assistant',
-                content: streamingContent,
-                attachments: [],
-                toolCalls: [],
-                toolResults: [],
-                timestamp: Date.now(),
-                tokenUsage: null,
-              }}
-              isStreaming
-            />
-          )}
+          <div className="space-y-8">
+            {currentMessages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} />
+            ))}
+            {isStreaming && streamingContent && activeConversationId && !currentMessages.some(
+              (m) => m.role === 'assistant' && m.content === streamingContent
+            ) && (
+              <MessageBubble
+                message={{
+                  id: 'streaming',
+                  conversationId: activeConversationId,
+                  role: 'assistant',
+                  content: streamingContent,
+                  attachments: [],
+                  toolCalls: [],
+                  toolResults: [],
+                  timestamp: Date.now(),
+                  tokenUsage: null,
+                }}
+                isStreaming
+              />
+            )}
+          </div>
         </div>
       </div>
 
