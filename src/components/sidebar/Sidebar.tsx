@@ -1,5 +1,3 @@
-import { useChatStore } from '../../stores/chatStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import {
   Plus,
   MessageSquare,
@@ -8,6 +6,13 @@ import {
   PanelLeftClose,
   Archive,
 } from 'lucide-react';
+import { useChatStore } from '@/stores/chatStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 export function Sidebar() {
   const {
@@ -44,178 +49,181 @@ export function Sidebar() {
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 modal-backdrop lg:hidden"
-          style={{ zIndex: 'var(--z-overlay)' }}
+          className="fixed inset-0 z-40 lg:hidden tenshi-backdrop-in"
+          style={{ backgroundColor: 'hsl(var(--code-bg))' }}
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
 
       <aside
-        className={`
-          fixed lg:relative
-          h-full w-[300px] flex flex-col
-          bg-bg-secondary border-r border-border
-          transition-transform duration-[var(--duration-slow)] ease-[var(--ease-out)]
-          ${sidebarOpen
+        className={cn(
+          'fixed lg:relative h-full w-[280px] flex flex-col',
+          'bg-sidebar text-sidebar-foreground border-r border-sidebar-border',
+          'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          sidebarOpen
             ? 'translate-x-0'
             : '-translate-x-full lg:translate-x-0 lg:w-0 lg:overflow-hidden lg:border-0'
-          }
-        `}
-        style={{ zIndex: 'var(--z-sidebar)' }}
+        )}
+        style={{ zIndex: 50 }}
         aria-label="Conversation navigation"
       >
         {/* Brand header */}
         <div
-          className="flex items-center justify-between px-5 py-4 border-b border-border"
+          className="flex items-center justify-between px-4 py-4 border-b border-sidebar-border"
           style={{ paddingTop: 'max(16px, var(--safe-top))' }}
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="grid place-items-center size-8 rounded-lg bg-accent/12 text-accent shrink-0">
-              <MessageSquare size={18} aria-hidden="true" />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="grid size-8 place-items-center rounded-lg bg-primary/15 text-primary shrink-0">
+              <MessageSquare size={17} className="text-primary" aria-hidden="true" />
             </span>
-            <h1 className="text-base font-semibold text-text tracking-tight truncate">
+            <h1 className="text-base font-semibold tracking-tight truncate">
               TenshiLLM
             </h1>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setSidebarOpen(false)}
             aria-label="Close sidebar"
-            className="p-2 -mr-1 rounded-lg hover:bg-surface-hover active:scale-90
-              text-text-muted hover:text-text
-              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
-              lg:hidden shrink-0"
+            className="lg:hidden text-muted-foreground"
           >
-            <PanelLeftClose size={18} aria-hidden="true" />
-          </button>
+            <PanelLeftClose />
+          </Button>
         </div>
 
         {/* New Chat CTA */}
-        <div className="px-4 py-4">
-          <button
-            onClick={handleNewChat}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl
-              bg-accent text-white hover:bg-accent-hover active:scale-[0.98]
-              text-sm font-medium transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
-              shadow-sm"
-          >
-            <Plus size={18} aria-hidden="true" />
+        <div className="px-3 py-4 space-y-3">
+          <Button onClick={handleNewChat} className="w-full" size="default">
+            <Plus />
             New Chat
-          </button>
+          </Button>
           {activeProvider && activeModel && (
-            <div className="flex items-center gap-2 mt-3 px-2">
-              <span className="size-1.5 rounded-full bg-success/80 shrink-0" aria-hidden="true" />
-              <p className="text-xs text-text-muted truncate">{activeProvider.name} / {activeModel.displayName}</p>
+            <div className="flex items-center gap-2 px-2">
+              <span className="size-1.5 rounded-full bg-success shrink-0" aria-hidden="true" />
+              <p className="text-xs text-muted-foreground truncate">
+                {activeProvider.name} / {activeModel.displayName}
+              </p>
             </div>
           )}
         </div>
 
         {/* Conversation list */}
-        <nav className="flex-1 overflow-y-auto px-3 pb-2" aria-label="Conversations">
-          {visibleConversations.length === 0 ? (
-            <div className="flex flex-col items-center text-center px-4 py-12">
-              <div className="grid place-items-center size-12 rounded-2xl bg-surface text-text-muted mb-3">
-                <MessageSquare size={20} aria-hidden="true" />
+        <ScrollArea className="flex-1 px-3">
+          <nav aria-label="Conversations" className="pb-2 conv-stagger">
+            {visibleConversations.length === 0 ? (
+              <div className="flex flex-col items-center text-center px-4 py-12">
+                <span className="grid size-12 place-items-center rounded-2xl bg-muted text-muted-foreground mb-3">
+                  <MessageSquare size={20} aria-hidden="true" />
+                </span>
+                <p className="text-sm font-medium mb-1">No conversations yet</p>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-4 text-pretty max-w-[220px]">
+                  Start a new chat to talk with your model. Your history will appear here.
+                </p>
+                <Button variant="outline" size="sm" onClick={handleNewChat}>
+                  + New chat
+                </Button>
               </div>
-              <p className="text-sm font-medium text-text mb-1">No conversations yet</p>
-              <p className="text-xs text-text-muted leading-relaxed mb-4 text-pretty max-w-[220px]">
-                Start a new chat to talk with your model. Your history will appear here.
-              </p>
-              <button
-                onClick={handleNewChat}
-                className="text-xs font-medium px-3 py-2 rounded-lg
-                  bg-surface hover:bg-surface-hover text-accent
-                  active:scale-95 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-              >
-                + New chat
-              </button>
-            </div>
-          ) : (
-            <ul className="space-y-1">
-              {visibleConversations.map((conv) => {
-                const isActive = activeConversationId === conv.id;
-                return (
-                  <li key={conv.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveConversation(conv.id);
-                        if (window.innerWidth < 1024) setSidebarOpen(false);
-                      }}
-                      aria-current={isActive ? 'true' : undefined}
-                      className={`group relative w-full flex items-center gap-3 pl-4 pr-2 py-3 rounded-xl
-                        text-left transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
-                        active:scale-[0.99] ${
-                        isActive
-                          ? 'bg-surface text-text'
-                          : 'hover:bg-surface-hover text-text-secondary'
-                      }`}
-                    >
-                      {isActive && (
-                        <span
-                          className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-full bg-accent"
+            ) : (
+              <ul className="space-y-1">
+                {visibleConversations.map((conv) => {
+                  const isActive = activeConversationId === conv.id;
+                  return (
+                    <li key={conv.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveConversation(conv.id);
+                          if (window.innerWidth < 1024) setSidebarOpen(false);
+                        }}
+                        aria-current={isActive ? 'true' : undefined}
+                        className={cn(
+                          'group relative w-full flex items-center gap-2.5 pl-4 pr-2 py-2.5 rounded-lg',
+                          'text-left transition-colors duration-150',
+                          isActive
+                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                            : 'hover:bg-sidebar-accent/60 text-sidebar-foreground/80'
+                        )}
+                      >
+                        {isActive && (
+                          <span
+                            className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-full bg-primary"
+                            aria-hidden="true"
+                          />
+                        )}
+                        <MessageSquare
+                          size={15}
+                          className={cn(
+                            'shrink-0',
+                            isActive ? 'text-primary' : 'text-muted-foreground'
+                          )}
                           aria-hidden="true"
                         />
-                      )}
-                      <MessageSquare
-                        size={16}
-                        className={`shrink-0 ${isActive ? 'text-accent' : 'text-text-muted'}`}
-                        aria-hidden="true"
-                      />
-                      <span className="flex-1 text-sm truncate leading-snug">{conv.title}</span>
-                      <span
-                        role="button"
-                        tabIndex={-1}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          archiveConversation(conv.id);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            archiveConversation(conv.id);
-                          }
-                        }}
-                        aria-label={`Archive conversation ${conv.title}`}
-                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100
-                          grid place-items-center size-7 rounded-md
-                          hover:bg-bg text-text-muted hover:text-text active:scale-90
-                          transition-all duration-[var(--duration-fast)] ease-[var(--ease-out)] shrink-0"
-                      >
-                        <Archive size={14} aria-hidden="true" />
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </nav>
+                        <span className="flex-1 text-sm truncate leading-snug">
+                          {conv.title}
+                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              role="button"
+                              tabIndex={-1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                archiveConversation(conv.id);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  archiveConversation(conv.id);
+                                }
+                              }}
+                              aria-label={`Archive conversation ${conv.title}`}
+                              className="grid size-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background/60 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all duration-150 shrink-0"
+                            >
+                              <Archive size={14} aria-hidden="true" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">Archive</TooltipContent>
+                        </Tooltip>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </nav>
+        </ScrollArea>
+
+        <Separator />
 
         {/* Footer nav */}
         <div
-          className="px-3 py-3 border-t border-border space-y-1"
+          className="px-3 py-3 space-y-1"
           style={{ paddingBottom: 'max(12px, var(--safe-bottom))' }}
         >
-          <button
-            onClick={() => { setCleanupOpen(true); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-              hover:bg-surface-hover active:scale-[0.98] text-text-secondary text-sm
-              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-muted-foreground"
+            onClick={() => {
+              setCleanupOpen(true);
+              setSidebarOpen(false);
+            }}
           >
-            <Trash2 size={16} className="text-text-muted shrink-0" aria-hidden="true" />
+            <Trash2 />
             Cleanup
-          </button>
-          <button
-            onClick={() => { setSettingsOpen(true); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-              hover:bg-surface-hover active:scale-[0.98] text-text-secondary text-sm
-              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-muted-foreground"
+            onClick={() => {
+              setSettingsOpen(true);
+              setSidebarOpen(false);
+            }}
           >
-            <Settings size={16} className="text-text-muted shrink-0" aria-hidden="true" />
+            <Settings />
             Settings
-          </button>
+          </Button>
         </div>
       </aside>
     </>

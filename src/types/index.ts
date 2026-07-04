@@ -1,13 +1,10 @@
 export type ThemeName =
-  | 'light'
-  | 'tokyo-night'
   | 'dracula'
+  | 'alucard'
+  | 'tokyo-night'
   | 'catppuccin'
-  | 'gruvbox'
   | 'nord'
-  | 'solarized'
-  | 'one-dark'
-  | 'everforest';
+  | 'gruvbox';
 
 export interface ThemeInfo {
   id: ThemeName;
@@ -15,18 +12,19 @@ export interface ThemeInfo {
   description: string;
   bgPreview: string;
   accentPreview: string;
+  isDark: boolean;
 }
 
+// Dracula is the default. Themes curated for a clean, modern palette.
+// Colors sourced from the official Dracula spec (https://draculatheme.com/spec)
+// and each theme's canonical palette.
 export const THEMES: ThemeInfo[] = [
-  { id: 'light', name: 'Light', description: 'Clean and bright', bgPreview: '#ffffff', accentPreview: '#2563eb' },
-  { id: 'tokyo-night', name: 'Tokyo Night', description: 'Dark purple-blue vibes', bgPreview: '#1a1b26', accentPreview: '#7aa2f7' },
-  { id: 'dracula', name: 'Dracula', description: 'Classic dark theme', bgPreview: '#282a36', accentPreview: '#bd93f9' },
-  { id: 'catppuccin', name: 'Catppuccin Mocha', description: 'Soothing pastel dark', bgPreview: '#1e1e2e', accentPreview: '#cba6f7' },
-  { id: 'gruvbox', name: 'Gruvbox Dark', description: 'Retro warm dark', bgPreview: '#282828', accentPreview: '#d79921' },
-  { id: 'nord', name: 'Nord', description: 'Arctic cool tones', bgPreview: '#2e3440', accentPreview: '#88c0d0' },
-  { id: 'solarized', name: 'Solarized Dark', description: 'Precision dark', bgPreview: '#002b36', accentPreview: '#268bd2' },
-  { id: 'one-dark', name: 'One Dark', description: 'Atom-inspired dark', bgPreview: '#282c34', accentPreview: '#61afef' },
-  { id: 'everforest', name: 'Everforest', description: 'Nature-inspired dark', bgPreview: '#2d353b', accentPreview: '#a7c080' },
+  { id: 'dracula', name: 'Dracula', description: 'Official dark default', bgPreview: '#282a36', accentPreview: '#bd93f9', isDark: true },
+  { id: 'alucard', name: 'Alucard', description: 'Official Dracula light', bgPreview: '#fffbeb', accentPreview: '#644ac9', isDark: false },
+  { id: 'tokyo-night', name: 'Tokyo Night', description: 'Calm purple-blue dark', bgPreview: '#1a1b26', accentPreview: '#7aa2f7', isDark: true },
+  { id: 'catppuccin', name: 'Catppuccin Mocha', description: 'Soothing pastel dark', bgPreview: '#1e1e2e', accentPreview: '#cba6f7', isDark: true },
+  { id: 'nord', name: 'Nord', description: 'Arctic cool tones', bgPreview: '#2e3440', accentPreview: '#88c0d0', isDark: true },
+  { id: 'gruvbox', name: 'Gruvbox Dark', description: 'Retro warm dark', bgPreview: '#282828', accentPreview: '#d79921', isDark: true },
 ];
 
 export interface ApiProvider {

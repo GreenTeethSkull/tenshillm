@@ -1,24 +1,54 @@
 import { useState } from 'react';
-import { useChatStore } from '../../stores/chatStore';
-import { useSettingsStore } from '../../stores/settingsStore';
-import { useThemeStore } from '../../stores/themeStore';
-import { THEMES } from '../../types';
-import type { ApiProvider, ModelConfig, McpServer, SearchConfig } from '../../types';
+import { useChatStore } from '@/stores/chatStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useThemeStore } from '@/stores/themeStore';
+import { THEMES } from '@/types';
+import type { ApiProvider, ModelConfig, McpServer, SearchConfig } from '@/types';
 import {
-  X,
   Plus,
   Trash2,
   Palette,
   Server,
   Cpu,
-  Search,
+  Search as SearchIcon,
   BookOpen,
-  Save,
   Eye,
   EyeOff,
   Plug,
+  Save,
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
+import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+
+type TabId = 'providers' | 'themes' | 'mcp' | 'search' | 'skills';
 
 export function SettingsPanel() {
   const { setSettingsOpen } = useChatStore();
@@ -49,14 +79,16 @@ export function SettingsPanel() {
 
   const { theme, setTheme } = useThemeStore();
 
-  const [tab, setTab] = useState<'providers' | 'themes' | 'mcp' | 'search' | 'skills'>('providers');
+  const [tab, setTab] = useState<TabId>('providers');
 
+  // Provider form
   const [showProviderForm, setShowProviderForm] = useState(false);
   const [providerName, setProviderName] = useState('');
   const [providerUrl, setProviderUrl] = useState('');
   const [providerKey, setProviderKey] = useState('');
   const [showKey, setShowKey] = useState(false);
 
+  // Model form
   const [showModelForm, setShowModelForm] = useState<string | null>(null);
   const [modelId, setModelId] = useState('');
   const [modelName, setModelName] = useState('');
@@ -65,11 +97,13 @@ export function SettingsPanel() {
   const [modelContext, setModelContext] = useState('128000');
   const [modelMaxOutput, setModelMaxOutput] = useState('4096');
 
+  // MCP form
   const [showMcpForm, setShowMcpForm] = useState(false);
   const [mcpName, setMcpName] = useState('');
   const [mcpUrl, setMcpUrl] = useState('');
   const [mcpHeaders, setMcpHeaders] = useState('');
 
+  // Skill form
   const [showSkillForm, setShowSkillForm] = useState(false);
   const [skillName, setSkillName] = useState('');
   const [skillDesc, setSkillDesc] = useState('');
@@ -92,6 +126,7 @@ export function SettingsPanel() {
     setProviderKey('');
     setShowProviderForm(false);
     saveSettings();
+    toast.success('Provider added');
   };
 
   const handleAddModel = (providerId: string) => {
@@ -112,6 +147,7 @@ export function SettingsPanel() {
     setModelTools(false);
     setShowModelForm(null);
     saveSettings();
+    toast.success('Model added');
   };
 
   const handleAddMcp = () => {
@@ -119,7 +155,10 @@ export function SettingsPanel() {
     let headers: Record<string, string> = {};
     try {
       if (mcpHeaders.trim()) headers = JSON.parse(mcpHeaders);
-    } catch {}
+    } catch {
+      toast.error('Headers JSON is invalid');
+      return;
+    }
     const server: McpServer = {
       id: nanoid(),
       name: mcpName,
@@ -136,6 +175,7 @@ export function SettingsPanel() {
     setMcpHeaders('');
     setShowMcpForm(false);
     saveSettings();
+    toast.success('MCP server added');
   };
 
   const handleAddSkill = () => {
@@ -154,6 +194,7 @@ export function SettingsPanel() {
     setSkillContent('');
     setShowSkillForm(false);
     saveSettings();
+    toast.success('Skill added');
   };
 
   const handleClose = () => {
@@ -161,755 +202,712 @@ export function SettingsPanel() {
     setSettingsOpen(false);
   };
 
-  const tabs = [
-    { id: 'providers' as const, label: 'Providers', icon: Server },
-    { id: 'themes' as const, label: 'Themes', icon: Palette },
-    { id: 'mcp' as const, label: 'MCP', icon: Plug },
-    { id: 'search' as const, label: 'Search', icon: Search },
-    { id: 'skills' as const, label: 'Skills', icon: BookOpen },
+  const tabs: { id: TabId; label: string; icon: typeof Server }[] = [
+    { id: 'providers', label: 'Providers', icon: Server },
+    { id: 'themes', label: 'Themes', icon: Palette },
+    { id: 'mcp', label: 'MCP', icon: Plug },
+    { id: 'search', label: 'Search', icon: SearchIcon },
+    { id: 'skills', label: 'Skills', icon: BookOpen },
   ];
 
   return (
-    <div
-      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/60 backdrop-blur-sm modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Settings dialog"
-      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
-    >
-      <div
-        className="bg-bg flex flex-col shadow-xl modal-shell
-          w-full h-full sm:h-auto sm:max-w-2xl sm:max-h-[90vh] sm:rounded-2xl sm:border sm:border-border sm:mx-4
-          overflow-hidden"
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-6 py-5 border-b border-border"
+    <Dialog open onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        className="sm:max-w-2xl h-[100dvh] sm:h-[88vh] sm:max-h-[88vh] p-0 gap-0 overflow-hidden flex flex-col tenshi-modal-in">
+        <DialogHeader
+          className="px-6 py-5 border-b border-border space-y-0"
           style={{ paddingTop: 'max(20px, var(--safe-top))' }}
         >
-          <h2 className="text-lg font-semibold text-text tracking-tight">Settings</h2>
-          <button
-            onClick={handleClose}
-            aria-label="Close settings"
-            className="p-2 -mr-1 rounded-xl hover:bg-surface-hover active:scale-90 text-text-muted
-              hover:text-text transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0"
-          >
-            <X size={18} aria-hidden="true" />
-          </button>
-        </div>
+          <DialogTitle className="text-lg font-semibold tracking-tight">
+            Settings
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Configure providers, themes, MCP servers, search and agent skills.
+          </DialogDescription>
+        </DialogHeader>
 
-        {/* Tabs — segmented control style */}
-        <div className="flex gap-1 px-6 pt-4 pb-3 overflow-x-auto" role="tablist" aria-label="Settings tabs">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium
-                whitespace-nowrap transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]
-                active:scale-95 ${
-                tab === t.id
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'text-text-secondary hover:bg-surface-hover'
-              }`}
-            >
-              <t.icon size={14} aria-hidden="true" />
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as TabId)}
+          className="flex-1 flex flex-col min-h-0 gap-0"
+        >
+          <div className="px-6 pt-4 pb-3 border-b border-border">
+            <TabsList className="w-full justify-start overflow-x-auto">
+              {tabs.map((t) => (
+                <TabsTrigger key={t.id} value={t.id} className="gap-1.5">
+                  <t.icon className="size-4" />
+                  {t.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-          {tab === 'providers' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-text">API Providers</h3>
-                <button
-                  onClick={() => setShowProviderForm(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl
-                    bg-accent text-white text-sm hover:bg-accent-hover active:scale-95
-                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shadow-sm shrink-0"
-                >
-                  <Plus size={14} aria-hidden="true" /> Add Provider
-                </button>
-              </div>
-
-              {showProviderForm && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border space-y-3">
-                  <input
-                    value={providerName}
-                    onChange={(e) => setProviderName(e.target.value)}
-                    aria-label="Provider name"
-                    placeholder="Provider name (e.g. OpenRouter)"
-                    className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                  />
-                  <input
-                    value={providerUrl}
-                    onChange={(e) => setProviderUrl(e.target.value)}
-                    aria-label="Base URL"
-                    placeholder="Base URL (e.g. https://openrouter.ai/api/v1)"
-                    className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                  />
-                  <div className="relative">
-                    <input
-                      type={showKey ? 'text' : 'password'}
-                      value={providerKey}
-                      onChange={(e) => setProviderKey(e.target.value)}
-                      aria-label="API key"
-                      placeholder="API Key"
-                      className="w-full px-4 py-2.5 pr-12 rounded-xl bg-bg border border-border
-                        text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                        transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                    />
-                    <button
-                      onClick={() => setShowKey(!showKey)}
-                      aria-label={showKey ? 'Hide API key' : 'Show API key'}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text
-                        transition-colors duration-[var(--duration-base)] active:scale-90"
-                    >
-                      {showKey ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
-                    </button>
+          <ScrollArea className="flex-1">
+            <div className="px-6 py-6">
+              {/* ===== Providers ===== */}
+              <TabsContent value="providers" className="mt-0 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">API Providers</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Add OpenAI-compatible endpoints and their models
+                    </p>
                   </div>
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={handleAddProvider}
-                      className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm hover:bg-accent-hover
-                        active:scale-95 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setShowProviderForm(false)}
-                      className="px-4 py-2.5 rounded-xl bg-bg border border-border text-text-secondary text-sm
-                        hover:bg-surface-hover active:scale-95 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  <Button size="sm" onClick={() => setShowProviderForm(true)}>
+                    <Plus />
+                    Add Provider
+                  </Button>
                 </div>
-              )}
 
-              {providers.length === 0 && !showProviderForm && (
-                <p className="text-sm text-text-muted text-center py-8">
-                  No providers configured. Add one to get started.
-                </p>
-              )}
+                {showProviderForm && (
+                  <Card className="border-border">
+                    <CardContent className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="prov-name">Provider name</Label>
+                        <Input
+                          id="prov-name"
+                          value={providerName}
+                          onChange={(e) => setProviderName(e.target.value)}
+                          placeholder="e.g. OpenRouter"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="prov-url">Base URL</Label>
+                        <Input
+                          id="prov-url"
+                          value={providerUrl}
+                          onChange={(e) => setProviderUrl(e.target.value)}
+                          placeholder="https://openrouter.ai/api/v1"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="prov-key">API Key</Label>
+                        <div className="relative">
+                          <Input
+                            id="prov-key"
+                            type={showKey ? 'text' : 'password'}
+                            value={providerKey}
+                            onChange={(e) => setProviderKey(e.target.value)}
+                            placeholder="sk-..."
+                            className="pr-10"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => setShowKey(!showKey)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                            aria-label={showKey ? 'Hide key' : 'Show key'}
+                          >
+                            {showKey ? <EyeOff /> : <Eye />}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" onClick={handleAddProvider}>
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowProviderForm(false)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-              {providers.map((p) => (
-                <div key={p.id} className="p-4 sm:p-5 rounded-2xl bg-surface border border-border">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="min-w-0 flex-1 mr-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm font-semibold text-text">{p.name}</h4>
-                        <button
+                {providers.length === 0 && !showProviderForm && (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No providers configured. Add one to get started.
+                  </p>
+                )}
+
+                {providers.map((p) => (
+                  <Card key={p.id} className="border-border">
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-sm font-semibold">{p.name}</h4>
+                            <Button
+                              size="xs"
+                              variant={activeProviderId === p.id ? 'default' : 'outline'}
+                              onClick={() => {
+                                setActiveProvider(p.id);
+                                if (p.models.length > 0) setActiveModel(p.models[0].id);
+                                saveSettings();
+                              }}
+                            >
+                              {activeProviderId === p.id ? 'Active' : 'Set Active'}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {p.baseUrl}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-muted-foreground hover:text-destructive"
                           onClick={() => {
-                            setActiveProvider(p.id);
-                            if (p.models.length > 0) setActiveModel(p.models[0].id);
+                            removeProvider(p.id);
                             saveSettings();
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                            activeProviderId === p.id
-                              ? 'bg-accent text-white'
-                              : 'bg-bg border border-border text-text-muted hover:text-text'
-                          }`}
+                          aria-label={`Delete ${p.name}`}
                         >
-                          {activeProviderId === p.id ? 'Active' : 'Set Active'}
-                        </button>
+                          <Trash2 />
+                        </Button>
                       </div>
-                      <p className="text-xs text-text-muted mt-1 truncate">{p.baseUrl}</p>
-                    </div>
+
+                      <div className="space-y-2">
+                        {p.models.map((m) => (
+                          <div
+                            key={m.id}
+                            className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-muted/60 border border-border"
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <Cpu size={14} className="shrink-0 text-muted-foreground" />
+                              <span className="text-sm truncate">{m.displayName}</span>
+                              <span className="text-xs text-muted-foreground hidden sm:inline">
+                                {m.modelId}
+                              </span>
+                              {activeProviderId === p.id && activeModelId === m.id && (
+                                <Badge variant="default" className="shrink-0">
+                                  Active
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {m.supportsVision && (
+                                <Badge variant="secondary" className="hidden sm:inline-flex">
+                                  Vision
+                                </Badge>
+                              )}
+                              {m.supportsTools && (
+                                <Badge
+                                  variant="secondary"
+                                  className="hidden sm:inline-flex bg-success/15 text-success border-success/20"
+                                >
+                                  Tools
+                                </Badge>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground hover:text-primary"
+                                onClick={() => {
+                                  setActiveModel(m.id);
+                                  setActiveProvider(p.id);
+                                  saveSettings();
+                                }}
+                                aria-label={`Set ${m.displayName} active`}
+                                title="Set as active model"
+                              >
+                                <Cpu />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground hover:text-destructive"
+                                onClick={() => {
+                                  removeModelFromProvider(p.id, m.id);
+                                  saveSettings();
+                                }}
+                                aria-label={`Delete ${m.displayName}`}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {showModelForm === p.id ? (
+                          <div className="rounded-xl bg-muted/40 border border-border p-4 space-y-3">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="mod-id">Model ID</Label>
+                              <Input
+                                id="mod-id"
+                                value={modelId}
+                                onChange={(e) => setModelId(e.target.value)}
+                                placeholder="gpt-4o"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="mod-name">Display name</Label>
+                              <Input
+                                id="mod-name"
+                                value={modelName}
+                                onChange={(e) => setModelName(e.target.value)}
+                                placeholder="GPT-4o"
+                              />
+                            </div>
+                            <div className="flex gap-5">
+                              <Label className="flex items-center gap-2 text-sm cursor-pointer font-normal">
+                                <Checkbox
+                                  checked={modelVision}
+                                  onCheckedChange={(v) => setModelVision(v === true)}
+                                />
+                                Vision
+                              </Label>
+                              <Label className="flex items-center gap-2 text-sm cursor-pointer font-normal">
+                                <Checkbox
+                                  checked={modelTools}
+                                  onCheckedChange={(v) => setModelTools(v === true)}
+                                />
+                                Tools
+                              </Label>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1.5">
+                                <Label htmlFor="mod-ctx">Context window</Label>
+                                <Input
+                                  id="mod-ctx"
+                                  type="number"
+                                  value={modelContext}
+                                  onChange={(e) => setModelContext(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="mod-out">Max output tokens</Label>
+                                <Input
+                                  id="mod-out"
+                                  type="number"
+                                  value={modelMaxOutput}
+                                  onChange={(e) => setModelMaxOutput(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <Button size="sm" onClick={() => handleAddModel(p.id)}>
+                                Add
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setShowModelForm(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setShowModelForm(p.id)}
+                            className="w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border border-dashed border-border text-muted-foreground text-sm hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
+                          >
+                            <Plus size={14} /> Add Model
+                          </button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+
+              {/* ===== Themes ===== */}
+              <TabsContent value="themes" className="mt-0 space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Theme</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Dracula is the default. Tap to switch.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {THEMES.map((t) => (
                     <button
+                      key={t.id}
+                      aria-pressed={theme === t.id}
+                      aria-label={`Theme ${t.name}`}
                       onClick={() => {
-                        removeProvider(p.id);
+                        setTheme(t.id);
                         saveSettings();
                       }}
-                      aria-label={`Delete provider ${p.name}`}
-                      className="p-2 rounded-xl hover:bg-error/10 text-text-muted hover:text-error
-                        active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shrink-0"
-                    >
-                      <Trash2 size={16} aria-hidden="true" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {p.models.map((m) => (
-                      <div
-                        key={m.id}
-                        className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-bg border border-border"
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-                          <Cpu size={14} className="text-text-muted shrink-0" />
-                          <span className="text-sm text-text truncate">{m.displayName}</span>
-                          <span className="text-xs text-text-muted hidden sm:inline">{m.modelId}</span>
-                          {activeProviderId === p.id && activeModelId === m.id && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-accent text-white text-xs font-medium shrink-0">Active</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {m.supportsVision && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-accent-muted text-accent text-xs hidden sm:inline">Vision</span>
-                          )}
-                          {m.supportsTools && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-success/20 text-success text-xs hidden sm:inline">Tools</span>
-                          )}
-                          <button
-                            onClick={() => {
-                              setActiveModel(m.id);
-                              setActiveProvider(p.id);
-                              saveSettings();
-                            }}
-                            aria-label={`Set ${m.displayName} as active model`}
-                            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted hover:text-accent
-                              active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                            title="Set as active model"
-                          >
-                            <Cpu size={14} aria-hidden="true" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              removeModelFromProvider(p.id, m.id);
-                              saveSettings();
-                            }}
-                            aria-label={`Delete model ${m.displayName}`}
-                            className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error
-                              active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                          >
-                            <Trash2 size={14} aria-hidden="true" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {showModelForm === p.id ? (
-                      <div className="p-4 rounded-xl bg-bg border border-border space-y-3">
-                        <input
-                          value={modelId}
-                          onChange={(e) => setModelId(e.target.value)}
-                          aria-label="Model ID"
-                          placeholder="Model ID (e.g. gpt-4o)"
-                          className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border
-                            text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                            transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                        />
-                        <input
-                          value={modelName}
-                          onChange={(e) => setModelName(e.target.value)}
-                          aria-label="Display name"
-                          placeholder="Display name (e.g. GPT-4o)"
-                          className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border
-                            text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                            transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                        />
-                        <div className="flex gap-5">
-                          <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={modelVision}
-                              onChange={(e) => setModelVision(e.target.checked)}
-                              className="rounded w-4 h-4 accent-accent"
-                            />
-                            Vision
-                          </label>
-                          <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={modelTools}
-                              onChange={(e) => setModelTools(e.target.checked)}
-                              className="rounded w-4 h-4 accent-accent"
-                            />
-                            Tools
-                          </label>
-                        </div>
-                        <div className="flex gap-2">
-                          <input
-                            value={modelContext}
-                            onChange={(e) => setModelContext(e.target.value)}
-                            aria-label="Context window"
-                            placeholder="Context window"
-                            type="number"
-                            className="w-1/2 px-4 py-2.5 rounded-xl bg-surface border border-border
-                              text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                          />
-                          <input
-                            value={modelMaxOutput}
-                            onChange={(e) => setModelMaxOutput(e.target.value)}
-                            aria-label="Max output tokens"
-                            placeholder="Max output tokens"
-                            type="number"
-                            className="w-1/2 px-4 py-2.5 rounded-xl bg-surface border border-border
-                              text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                          />
-                        </div>
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            onClick={() => handleAddModel(p.id)}
-                            className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm
-                              hover:bg-accent-hover active:scale-95
-                              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                          >
-                            Add
-                          </button>
-                          <button
-                            onClick={() => setShowModelForm(null)}
-                            className="px-4 py-2.5 rounded-xl bg-surface border border-border text-text-secondary text-sm
-                              hover:bg-surface-hover active:scale-95
-                              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setShowModelForm(p.id)}
-                        aria-label="Add new model"
-                        className="w-full flex items-center justify-center gap-1.5 px-3 py-3
-                          rounded-xl border border-dashed border-border text-text-muted
-                          text-sm hover:border-accent hover:text-accent hover:bg-accent/5
-                          transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                      >
-                        <Plus size={14} aria-hidden="true" /> Add Model
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {tab === 'themes' && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-text">Theme</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {THEMES.map((t) => (
-                  <button
-                    key={t.id}
-                    aria-pressed={theme === t.id}
-                    aria-label={`Theme ${t.name}`}
-                    onClick={() => {
-                      setTheme(t.id);
-                      saveSettings();
-                    }}
-                    className={`flex items-center gap-3.5 p-4 rounded-2xl border transition-all duration-[var(--duration-base)]
-                      ease-[var(--ease-out)] text-left active:scale-[0.98] ${
-                      theme === t.id
-                        ? 'border-accent ring-2 ring-accent/30 bg-accent/5'
-                        : 'border-border hover:border-accent/40 bg-surface hover:bg-surface-hover'
-                    }`}
-                  >
-                    <div className="flex gap-1.5 shrink-0">
-                      <div
-                        className="w-7 h-7 rounded-full border border-white/10 shadow-sm"
-                        style={{ backgroundColor: t.bgPreview }}
-                      />
-                      <div
-                        className="w-7 h-7 rounded-full border border-white/10 shadow-sm"
-                        style={{ backgroundColor: t.accentPreview }}
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-text">{t.name}</p>
-                      <p className="text-xs text-text-muted mt-0.5">{t.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {tab === 'mcp' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-text">MCP Servers (Remote)</h3>
-                  <p className="text-xs text-text-muted mt-1">
-                    Connect to remote MCP servers via Streamable HTTP
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowMcpForm(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl
-                    bg-accent text-white text-sm hover:bg-accent-hover active:scale-95
-                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shadow-sm shrink-0"
-                >
-                  <Plus size={14} aria-hidden="true" /> Add
-                </button>
-              </div>
-
-              {showMcpForm && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border space-y-3">
-                  <input
-                    value={mcpName}
-                    onChange={(e) => setMcpName(e.target.value)}
-                    aria-label="Server name"
-                    placeholder="Server name"
-                    className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                  />
-                  <input
-                    value={mcpUrl}
-                    onChange={(e) => setMcpUrl(e.target.value)}
-                    aria-label="Server URL"
-                    placeholder="Server URL (e.g. https://mcp.example.com/mcp)"
-                    className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                  />
-                  <textarea
-                    value={mcpHeaders}
-                    onChange={(e) => setMcpHeaders(e.target.value)}
-                    aria-label="Headers JSON"
-                    placeholder='Headers JSON (e.g. {"Authorization": "Bearer token"})'
-                    rows={2}
-                    className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] resize-none font-mono"
-                  />
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={handleAddMcp}
-                      className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm
-                        hover:bg-accent-hover active:scale-95
-                        transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setShowMcpForm(false)}
-                      className="px-4 py-2.5 rounded-xl bg-bg border border-border text-text-secondary text-sm
-                        hover:bg-surface-hover active:scale-95
-                        transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {mcpServers.length === 0 && !showMcpForm && (
-                <p className="text-sm text-text-muted text-center py-8">
-                  No MCP servers configured.
-                </p>
-              )}
-
-              {mcpServers.map((srv) => (
-                <div
-                  key={srv.id}
-                  className="p-4 sm:p-5 rounded-2xl bg-surface border border-border"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-3">
-                      <div
-                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                          srv.connected ? 'bg-success' : srv.isEnabled ? 'bg-warning' : 'bg-text-muted'
-                        }`}
-                      />
-                      <h4 className="text-sm font-semibold text-text truncate">{srv.name}</h4>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => {
-                          updateMcpServer(srv.id, { isEnabled: !srv.isEnabled });
-                          saveSettings();
-                        }}
-                        aria-pressed={srv.isEnabled}
-                        aria-label={`Toggle ${srv.name}`}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium
-                          transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] active:scale-95 ${
-                          srv.isEnabled
-                            ? 'bg-success/20 text-success'
-                            : 'bg-bg border border-border text-text-muted'
-                        }`}
-                      >
-                        {srv.isEnabled ? 'Enabled' : 'Disabled'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          removeMcpServer(srv.id);
-                          saveSettings();
-                        }}
-                        aria-label={`Delete ${srv.name}`}
-                        className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error
-                          active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                      >
-                        <Trash2 size={14} aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-text-muted mt-1.5 truncate">{srv.url}</p>
-                  {srv.tools.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {srv.tools.map((tool) => (
-                        <span
-                          key={tool.name}
-                          className="px-2 py-0.5 rounded-md bg-accent-muted text-accent text-xs"
-                        >
-                          {tool.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {tab === 'search' && (
-            <div className="space-y-5">
-              <h3 className="text-sm font-semibold text-text">Web Search</h3>
-
-              <label className="flex items-center justify-between p-4 rounded-2xl bg-surface border border-border">
-                <span className="text-sm text-text">Enable web search</span>
-                <button
-                  onClick={() => {
-                    setSearchConfig({ ...searchConfig, enabled: !searchConfig.enabled });
-                    saveSettings();
-                  }}
-                  aria-pressed={searchConfig.enabled}
-                  aria-label="Toggle web search"
-                  className={`w-11 h-7 rounded-full relative shrink-0
-                    transition-colors duration-[var(--duration-base)] ease-[var(--ease-out)] active:scale-95 ${
-                    searchConfig.enabled ? 'bg-accent' : 'bg-border'
-                  }`}
-                >
-                  <div
-                    className={`w-5 h-5 rounded-full bg-white shadow-sm absolute top-1
-                      transition-transform duration-[var(--duration-base)] ease-[var(--ease-out)] ${
-                      searchConfig.enabled ? 'translate-x-5' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </label>
-
-              <div>
-                <label className="text-sm text-text-secondary block mb-2">Provider</label>
-                <select
-                  aria-label="Search provider"
-                  value={searchConfig.provider}
-                  onChange={(e) => {
-                    setSearchConfig({
-                      ...searchConfig,
-                      provider: e.target.value as SearchConfig['provider'],
-                    });
-                    saveSettings();
-                  }}
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border
-                    text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                >
-                  <option value="tavily">Tavily (Recommended)</option>
-                  <option value="serpapi">SerpAPI</option>
-                  <option value="brave">Brave Search</option>
-                  <option value="duckduckgo">DuckDuckGo (No API key)</option>
-                </select>
-              </div>
-
-              {searchConfig.provider !== 'duckduckgo' && (
-                <div>
-                  <label className="text-sm text-text-secondary block mb-2">API Key</label>
-                  <input
-                    type="password"
-                    aria-label="Search API key"
-                    value={searchConfig.apiKey}
-                    onChange={(e) => {
-                      setSearchConfig({ ...searchConfig, apiKey: e.target.value });
-                      saveSettings();
-                    }}
-                    placeholder="Enter your API key"
-                    className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="text-sm text-text-secondary block mb-2">
-                  Max results: {searchConfig.maxResults}
-                </label>
-                <input
-                  type="range"
-                  aria-label="Maximum search results"
-                  min={1}
-                  max={10}
-                  value={searchConfig.maxResults}
-                  onChange={(e) => {
-                    setSearchConfig({ ...searchConfig, maxResults: parseInt(e.target.value) });
-                    saveSettings();
-                  }}
-                  className="w-full accent-accent"
-                />
-              </div>
-            </div>
-          )}
-
-          {tab === 'skills' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-text">Agent Skills</h3>
-                  <p className="text-xs text-text-muted mt-1">
-                    Markdown files that expand model capabilities
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowSkillForm(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl
-                    bg-accent text-white text-sm hover:bg-accent-hover active:scale-95
-                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shadow-sm shrink-0"
-                >
-                  <Plus size={14} aria-hidden="true" /> Add
-                </button>
-              </div>
-
-              {showSkillForm && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border space-y-3">
-                  <input
-                    value={skillName}
-                    onChange={(e) => setSkillName(e.target.value)}
-                    aria-label="Skill name"
-                    placeholder="Skill name"
-                    className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                  />
-                  <input
-                    value={skillDesc}
-                    onChange={(e) => setSkillDesc(e.target.value)}
-                    aria-label="Skill description"
-                    placeholder="Short description"
-                    className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                  />
-                  <textarea
-                    value={skillContent}
-                    onChange={(e) => setSkillContent(e.target.value)}
-                    aria-label="Skill content"
-                    placeholder="Skill content (Markdown). This will be injected into the system prompt."
-                    rows={6}
-                    className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border
-                      text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                      transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] resize-none font-mono"
-                  />
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={handleAddSkill}
-                      className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm
-                        hover:bg-accent-hover active:scale-95
-                        transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setShowSkillForm(false)}
-                      className="px-4 py-2.5 rounded-xl bg-bg border border-border text-text-secondary text-sm
-                        hover:bg-surface-hover active:scale-95
-                        transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {agentSkills.length === 0 && !showSkillForm && (
-                <p className="text-sm text-text-muted text-center py-8">
-                  No agent skills configured.
-                </p>
-              )}
-
-              {agentSkills.map((skill) => (
-                <div
-                  key={skill.id}
-                  className="p-4 sm:p-5 rounded-2xl bg-surface border border-border"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1 mr-3">
-                      <h4 className="text-sm font-semibold text-text">{skill.name}</h4>
-                      {skill.description && (
-                        <p className="text-xs text-text-muted mt-0.5">{skill.description}</p>
+                      className={cn(
+                        'flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]',
+                        theme === t.id
+                          ? 'border-primary ring-2 ring-primary/30 bg-primary/5'
+                          : 'border-border hover:border-primary/40 bg-card hover:bg-muted'
                       )}
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => {
-                          updateAgentSkill(skill.id, { isEnabled: !skill.isEnabled });
-                          saveSettings();
-                        }}
-                        aria-pressed={skill.isEnabled}
-                        aria-label={`Toggle ${skill.name}`}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium
-                          transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] active:scale-95 ${
-                          skill.isEnabled
-                            ? 'bg-accent-muted text-accent'
-                            : 'bg-bg border border-border text-text-muted'
-                        }`}
-                      >
-                        {skill.isEnabled ? 'Active' : 'Disabled'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          removeAgentSkill(skill.id);
-                          saveSettings();
-                        }}
-                        aria-label={`Delete skill ${skill.name}`}
-                        className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error
-                          active:scale-90 transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]"
-                      >
-                        <Trash2 size={14} aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-                  <pre className="mt-3 text-xs text-text-muted bg-bg rounded-xl p-3 max-h-24 overflow-auto leading-relaxed">
-                    {skill.content.slice(0, 200)}{skill.content.length > 200 ? '...' : ''}
-                  </pre>
+                    >
+                      <div className="flex gap-1.5 shrink-0">
+                        <div
+                          className="size-7 rounded-full border border-white/10 shadow-sm"
+                          style={{ backgroundColor: t.bgPreview }}
+                        />
+                        <div
+                          className="size-7 rounded-full border border-white/10 shadow-sm"
+                          style={{ backgroundColor: t.accentPreview }}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{t.name}</p>
+                          {t.id === 'dracula' && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              default
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {t.description}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-              ))}
+              </TabsContent>
 
-              <div className="pt-5 border-t border-border">
-                <h3 className="text-sm font-semibold text-text mb-3">Default System Prompt</h3>
-                <textarea
-                  value={defaultSystemPrompt}
-                  onChange={(e) => {
-                    setDefaultSystemPrompt(e.target.value);
-                    saveSettings();
-                  }}
-                  aria-label="Default system prompt"
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-xl bg-surface border border-border
-                    text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/40
-                    transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] resize-none leading-relaxed"
-                />
-              </div>
+              {/* ===== MCP ===== */}
+              <TabsContent value="mcp" className="mt-0 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">MCP Servers (Remote)</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Streamable HTTP transport — mobile compatible
+                    </p>
+                  </div>
+                  <Button size="sm" onClick={() => setShowMcpForm(true)}>
+                    <Plus />
+                    Add
+                  </Button>
+                </div>
+
+                {showMcpForm && (
+                  <Card className="border-border">
+                    <CardContent className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="mcp-name">Server name</Label>
+                        <Input
+                          id="mcp-name"
+                          value={mcpName}
+                          onChange={(e) => setMcpName(e.target.value)}
+                          placeholder="My MCP Server"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="mcp-url">Server URL</Label>
+                        <Input
+                          id="mcp-url"
+                          value={mcpUrl}
+                          onChange={(e) => setMcpUrl(e.target.value)}
+                          placeholder="https://mcp.example.com/mcp"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="mcp-headers">Headers JSON (optional)</Label>
+                        <Textarea
+                          id="mcp-headers"
+                          value={mcpHeaders}
+                          onChange={(e) => setMcpHeaders(e.target.value)}
+                          placeholder='{"Authorization": "Bearer token"}'
+                          rows={2}
+                          className="font-mono"
+                        />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" onClick={handleAddMcp}>
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowMcpForm(false)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {mcpServers.length === 0 && !showMcpForm && (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No MCP servers configured.
+                  </p>
+                )}
+
+                {mcpServers.map((srv) => (
+                  <Card key={srv.id} className="border-border">
+                    <CardContent className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <span
+                            className={cn(
+                              'size-2.5 rounded-full shrink-0',
+                              srv.connected
+                                ? 'bg-success'
+                                : srv.isEnabled
+                                  ? 'bg-warning'
+                                  : 'bg-muted-foreground'
+                            )}
+                          />
+                          <h4 className="text-sm font-semibold truncate">{srv.name}</h4>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Switch
+                            checked={srv.isEnabled}
+                            onCheckedChange={(v) => {
+                              updateMcpServer(srv.id, { isEnabled: v });
+                              saveSettings();
+                            }}
+                            aria-label={`Toggle ${srv.name}`}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              removeMcpServer(srv.id);
+                              saveSettings();
+                            }}
+                            aria-label={`Delete ${srv.name}`}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{srv.url}</p>
+                      {srv.tools.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {srv.tools.map((tool) => (
+                            <Badge key={tool.name} variant="secondary">
+                              {tool.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+
+              {/* ===== Search ===== */}
+              <TabsContent value="search" className="mt-0 space-y-5">
+                <div>
+                  <h3 className="text-sm font-semibold">Web Search</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Inject a web_search tool into the model
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-xl bg-card border border-border">
+                  <Label htmlFor="search-enabled" className="text-sm font-normal">
+                    Enable web search
+                  </Label>
+                  <Switch
+                    id="search-enabled"
+                    checked={searchConfig.enabled}
+                    onCheckedChange={(v) => {
+                      setSearchConfig({ ...searchConfig, enabled: v });
+                      saveSettings();
+                    }}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="search-prov">Provider</Label>
+                  <Select
+                    value={searchConfig.provider}
+                    onValueChange={(v) => {
+                      setSearchConfig({
+                        ...searchConfig,
+                        provider: v as SearchConfig['provider'],
+                      });
+                      saveSettings();
+                    }}
+                  >
+                    <SelectTrigger id="search-prov" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tavily">Tavily (Recommended)</SelectItem>
+                      <SelectItem value="serpapi">SerpAPI</SelectItem>
+                      <SelectItem value="brave">Brave Search</SelectItem>
+                      <SelectItem value="duckduckgo">DuckDuckGo (No key)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {searchConfig.provider !== 'duckduckgo' && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="search-key">API Key</Label>
+                    <Input
+                      id="search-key"
+                      type="password"
+                      value={searchConfig.apiKey}
+                      onChange={(e) => {
+                        setSearchConfig({ ...searchConfig, apiKey: e.target.value });
+                        saveSettings();
+                      }}
+                      placeholder="Enter your API key"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Max results</Label>
+                    <Badge variant="secondary">{searchConfig.maxResults}</Badge>
+                  </div>
+                  <Slider
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={[searchConfig.maxResults]}
+                    onValueChange={(v) => {
+                      setSearchConfig({ ...searchConfig, maxResults: v[0] });
+                      saveSettings();
+                    }}
+                  />
+                </div>
+              </TabsContent>
+
+              {/* ===== Skills ===== */}
+              <TabsContent value="skills" className="mt-0 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">Agent Skills</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Markdown content injected into the system prompt
+                    </p>
+                  </div>
+                  <Button size="sm" onClick={() => setShowSkillForm(true)}>
+                    <Plus />
+                    Add
+                  </Button>
+                </div>
+
+                {showSkillForm && (
+                  <Card className="border-border">
+                    <CardContent className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="skill-name">Skill name</Label>
+                        <Input
+                          id="skill-name"
+                          value={skillName}
+                          onChange={(e) => setSkillName(e.target.value)}
+                          placeholder="My skill"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="skill-desc">Description</Label>
+                        <Input
+                          id="skill-desc"
+                          value={skillDesc}
+                          onChange={(e) => setSkillDesc(e.target.value)}
+                          placeholder="Short description"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="skill-content">Content (Markdown)</Label>
+                        <Textarea
+                          id="skill-content"
+                          value={skillContent}
+                          onChange={(e) => setSkillContent(e.target.value)}
+                          rows={6}
+                          className="font-mono"
+                          placeholder="Skill content — injected into the system prompt"
+                        />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" onClick={handleAddSkill}>
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowSkillForm(false)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {agentSkills.length === 0 && !showSkillForm && (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No agent skills configured.
+                  </p>
+                )}
+
+                {agentSkills.map((skill) => (
+                  <Card key={skill.id} className="border-border">
+                    <CardContent className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-sm font-semibold">{skill.name}</h4>
+                          {skill.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {skill.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Switch
+                            checked={skill.isEnabled}
+                            onCheckedChange={(v) => {
+                              updateAgentSkill(skill.id, { isEnabled: v });
+                              saveSettings();
+                            }}
+                            aria-label={`Toggle ${skill.name}`}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              removeAgentSkill(skill.id);
+                              saveSettings();
+                            }}
+                            aria-label={`Delete ${skill.name}`}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
+                      </div>
+                      <pre className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 max-h-24 overflow-auto leading-relaxed font-mono border border-border">
+                        {skill.content.slice(0, 200)}
+                        {skill.content.length > 200 ? '...' : ''}
+                      </pre>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                <Separator />
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="sys-prompt">Default System Prompt</Label>
+                  <Textarea
+                    id="sys-prompt"
+                    value={defaultSystemPrompt}
+                    onChange={(e) => {
+                      setDefaultSystemPrompt(e.target.value);
+                      saveSettings();
+                    }}
+                    rows={4}
+                    className="leading-relaxed"
+                    placeholder="Base instructions for every conversation"
+                  />
+                </div>
+              </TabsContent>
             </div>
-          )}
-        </div>
+          </ScrollArea>
+        </Tabs>
 
-        {/* Footer */}
-        <div
-          className="px-6 py-4 border-t border-border flex justify-end"
+        <DialogFooter
+          className="px-6 py-4 border-t border-border justify-end"
           style={{ paddingBottom: 'max(16px, var(--safe-bottom))' }}
         >
-          <button
-            onClick={handleClose}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl
-              bg-accent text-white text-sm font-medium hover:bg-accent-hover active:scale-95
-              transition-all duration-[var(--duration-base)] ease-[var(--ease-out)] shadow-sm"
-          >
-            <Save size={16} aria-hidden="true" /> Save & Close
-          </button>
-        </div>
-      </div>
-    </div>
+          <Button onClick={handleClose}>
+            <Save />
+            Save & Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
