@@ -2,10 +2,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, Wrench, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
+import { Tooltip } from '@heroui/react';
 import type { Message } from '@/types';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Props {
   message: Message;
@@ -18,19 +16,21 @@ export function MessageBubble({ message, isStreaming }: Props) {
   const isTool = message.role === 'tool';
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(message.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable — fail silently
+    }
   };
 
   if (isTool) {
     return (
       <article className="flex gap-4" aria-label="Tool response">
-        <Avatar className="size-9 rounded-lg shrink-0">
-          <AvatarFallback className="rounded-lg bg-warning/15 text-warning">
-            <Wrench size={16} aria-hidden="true" />
-          </AvatarFallback>
-        </Avatar>
+        <div className="grid size-9 place-items-center rounded-lg shrink-0 bg-warning/15 text-warning">
+          <Wrench size={16} aria-hidden="true" />
+        </div>
         <div className="min-w-0 flex-1 pt-1">
           <div className="text-[11px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
             Tool Result
@@ -86,33 +86,30 @@ export function MessageBubble({ message, isStreaming }: Props) {
   // Assistant message — avatar + full-width content (Claude/ChatGPT style)
   return (
     <article className="flex gap-4 group">
-      <Avatar className="size-9 rounded-lg shrink-0">
-        <AvatarFallback className="rounded-lg bg-primary/15 text-primary">
-          <Bot size={18} aria-hidden="true" />
-        </AvatarFallback>
-      </Avatar>
+      <div className="grid size-9 place-items-center rounded-lg shrink-0 bg-primary/15 text-primary">
+        <Bot size={18} aria-hidden="true" />
+      </div>
 
       <div className="min-w-0 flex-1 pt-0.5">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-sm font-semibold">Assistant</span>
           {!isStreaming && message.content && (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
+              <Tooltip.Trigger>
+                <button
+                  type="button"
                   onClick={handleCopy}
                   aria-label={copied ? 'Copied to clipboard' : 'Copy message'}
-                  className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-foreground"
+                  className="grid size-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-bg opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all duration-150"
                 >
                   {copied ? (
                     <Check size={13} aria-hidden="true" />
                   ) : (
                     <Copy size={13} aria-hidden="true" />
                   )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{copied ? 'Copied' : 'Copy'}</TooltipContent>
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Content>{copied ? 'Copied' : 'Copy'}</Tooltip.Content>
             </Tooltip>
           )}
         </div>

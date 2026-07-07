@@ -8,10 +8,7 @@ import {
 } from 'lucide-react';
 import { useChatStore } from '@/stores/chatStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ScrollShadow, Tooltip } from '@heroui/react';
 import { cn } from '@/lib/utils';
 
 export function Sidebar() {
@@ -50,7 +47,7 @@ export function Sidebar() {
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 lg:hidden tenshi-backdrop-in"
-          style={{ backgroundColor: 'hsl(var(--code-bg))' }}
+          style={{ backgroundColor: 'var(--code-bg)' }}
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -75,54 +72,82 @@ export function Sidebar() {
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="grid size-8 place-items-center rounded-lg bg-primary/15 text-primary shrink-0">
-              <MessageSquare size={17} className="text-primary" aria-hidden="true" />
+              <MessageSquare size={17} aria-hidden="true" />
             </span>
             <h1 className="text-base font-semibold tracking-tight truncate">
               TenshiLLM
             </h1>
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          <button
+            type="button"
             onClick={() => setSidebarOpen(false)}
             aria-label="Close sidebar"
-            className="lg:hidden text-muted-foreground"
+            className="lg:hidden grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-sidebar-accent transition-colors"
           >
-            <PanelLeftClose />
-          </Button>
+            <PanelLeftClose size={18} />
+          </button>
         </div>
 
         {/* New Chat CTA */}
         <div className="px-3 py-4 space-y-3">
-          <Button onClick={handleNewChat} className="w-full" size="default">
-            <Plus />
+          <button
+            type="button"
+            onClick={handleNewChat}
+            className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:opacity-90 active:scale-[0.98] transition-all"
+          >
+            <Plus size={16} aria-hidden="true" />
             New Chat
-          </Button>
-          {activeProvider && activeModel && (
+          </button>
+          {activeProvider && activeModel ? (
             <div className="flex items-center gap-2 px-2">
-              <span className="size-1.5 rounded-full bg-success shrink-0" aria-hidden="true" />
+              <span
+                className="size-1.5 rounded-full bg-success shrink-0"
+                aria-hidden="true"
+              />
               <p className="text-xs text-muted-foreground truncate">
                 {activeProvider.name} / {activeModel.displayName}
               </p>
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground px-2">
+              No provider configured —{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(true);
+                  setSidebarOpen(false);
+                }}
+                className="text-primary underline underline-offset-2 hover:opacity-80"
+              >
+                set one up
+              </button>
+            </p>
           )}
         </div>
 
         {/* Conversation list */}
-        <ScrollArea className="flex-1 px-3">
+        <ScrollShadow
+          className="flex-1 px-3 overflow-y-auto"
+          orientation="vertical"
+          size={8}
+        >
           <nav aria-label="Conversations" className="pb-2 conv-stagger">
             {visibleConversations.length === 0 ? (
               <div className="flex flex-col items-center text-center px-4 py-12">
-                <span className="grid size-12 place-items-center rounded-2xl bg-muted text-muted-foreground mb-3">
+                <span className="grid size-12 place-items-center rounded-2xl bg-muted-bg text-muted-foreground mb-3">
                   <MessageSquare size={20} aria-hidden="true" />
                 </span>
                 <p className="text-sm font-medium mb-1">No conversations yet</p>
                 <p className="text-xs text-muted-foreground leading-relaxed mb-4 text-pretty max-w-[220px]">
                   Start a new chat to talk with your model. Your history will appear here.
                 </p>
-                <Button variant="outline" size="sm" onClick={handleNewChat}>
+                <button
+                  type="button"
+                  onClick={handleNewChat}
+                  className="px-3 h-8 rounded-lg border border-border text-sm hover:bg-sidebar-accent transition-colors"
+                >
                   + New chat
-                </Button>
+                </button>
               </div>
             ) : (
               <ul className="space-y-1">
@@ -130,16 +155,24 @@ export function Sidebar() {
                   const isActive = activeConversationId === conv.id;
                   return (
                     <li key={conv.id}>
-                      <button
-                        type="button"
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => {
                           setActiveConversation(conv.id);
                           if (window.innerWidth < 1024) setSidebarOpen(false);
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setActiveConversation(conv.id);
+                            if (window.innerWidth < 1024) setSidebarOpen(false);
+                          }
+                        }}
                         aria-current={isActive ? 'true' : undefined}
                         className={cn(
-                          'group relative w-full flex items-center gap-2.5 pl-4 pr-2 py-2.5 rounded-lg',
-                          'text-left transition-colors duration-150',
+                          'group relative w-full flex items-center gap-2.5 pl-4 pr-2 py-2.5 rounded-lg cursor-pointer',
+                          'transition-colors duration-150',
                           isActive
                             ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                             : 'hover:bg-sidebar-accent/60 text-sidebar-foreground/80'
@@ -163,7 +196,7 @@ export function Sidebar() {
                           {conv.title}
                         </span>
                         <Tooltip>
-                          <TooltipTrigger asChild>
+                          <Tooltip.Trigger>
                             <span
                               role="button"
                               tabIndex={-1}
@@ -183,47 +216,47 @@ export function Sidebar() {
                             >
                               <Archive size={14} aria-hidden="true" />
                             </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="right">Archive</TooltipContent>
+                          </Tooltip.Trigger>
+                          <Tooltip.Content>Archive</Tooltip.Content>
                         </Tooltip>
-                      </button>
+                      </div>
                     </li>
                   );
                 })}
               </ul>
             )}
           </nav>
-        </ScrollArea>
+        </ScrollShadow>
 
-        <Separator />
+        <div className="h-px bg-sidebar-border" />
 
         {/* Footer nav */}
         <div
           className="px-3 py-3 space-y-1"
           style={{ paddingBottom: 'max(12px, var(--safe-bottom))' }}
         >
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-muted-foreground"
+          <button
+            type="button"
+            className="w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-sm text-muted-foreground hover:bg-sidebar-accent transition-colors"
             onClick={() => {
               setCleanupOpen(true);
               setSidebarOpen(false);
             }}
           >
-            <Trash2 />
+            <Trash2 size={16} aria-hidden="true" />
             Cleanup
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-muted-foreground"
+          </button>
+          <button
+            type="button"
+            className="w-full flex items-center gap-2.5 h-9 px-3 rounded-lg text-sm text-muted-foreground hover:bg-sidebar-accent transition-colors"
             onClick={() => {
               setSettingsOpen(true);
               setSidebarOpen(false);
             }}
           >
-            <Settings />
+            <Settings size={16} aria-hidden="true" />
             Settings
-          </Button>
+          </button>
         </div>
       </aside>
     </>

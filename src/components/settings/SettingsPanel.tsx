@@ -16,36 +16,24 @@ import {
   EyeOff,
   Plug,
   Save,
+  X,
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { toast } from 'sonner';
+import { Tabs, ScrollShadow, Separator } from '@heroui/react';
+import { Drawer } from '@/components/Overlay';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Card, CardContent } from '@/components/ui/card';
+  Toggle,
+  TextInput,
+  TextAreaInput,
+  SelectInput,
+  RangeInput,
+  CheckBox,
+  Field,
+  PrimaryButton,
+  GhostButton,
+  IconGhostButton,
+} from '@/components/primitives';
 import { cn } from '@/lib/utils';
 
 type TabId = 'providers' | 'themes' | 'mcp' | 'search' | 'skills';
@@ -211,703 +199,640 @@ export function SettingsPanel() {
   ];
 
   return (
-    <Dialog open onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent
-        className="sm:max-w-2xl h-[100dvh] sm:h-[88vh] sm:max-h-[88vh] p-0 gap-0 overflow-hidden flex flex-col tenshi-modal-in">
-        <DialogHeader
-          className="px-6 py-5 border-b border-border space-y-0"
-          style={{ paddingTop: 'max(20px, var(--safe-top))' }}
-        >
-          <DialogTitle className="text-lg font-semibold tracking-tight">
-            Settings
-          </DialogTitle>
-          <DialogDescription className="sr-only">
+    <Drawer onClose={handleClose} label="Settings" width="max-w-2xl">
+      {/* Header */}
+      <header
+        className="flex items-center justify-between px-6 py-5 border-b border-border"
+        style={{ paddingTop: 'max(20px, var(--safe-top))' }}
+      >
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Settings</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
             Configure providers, themes, MCP servers, search and agent skills.
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </div>
+        <IconGhostButton onClick={handleClose} ariaLabel="Close settings">
+          <X size={18} />
+        </IconGhostButton>
+      </header>
 
-        <Tabs
-          value={tab}
-          onValueChange={(v) => setTab(v as TabId)}
-          className="flex-1 flex flex-col min-h-0 gap-0"
-        >
-          <div className="px-6 pt-4 pb-3 border-b border-border">
-            <TabsList className="w-full justify-start overflow-x-auto">
+      <Tabs
+        selectedKey={tab}
+        onSelectionChange={(k) => setTab(k as TabId)}
+        className="flex-1 flex flex-col min-h-0"
+      >
+        <div className="px-6 pt-4 pb-3 border-b border-border">
+          <Tabs.ListContainer>
+            <Tabs.List className="flex gap-1 overflow-x-auto">
               {tabs.map((t) => (
-                <TabsTrigger key={t.id} value={t.id} className="gap-1.5">
-                  <t.icon className="size-4" />
+                <Tabs.Tab
+                  key={t.id}
+                  id={t.id}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium transition-colors cursor-pointer',
+                    'data-[selected]:bg-primary data-[selected]:text-primary-foreground',
+                    'text-muted-foreground hover:bg-muted-bg hover:text-foreground'
+                  )}
+                >
+                  <t.icon size={15} aria-hidden="true" />
                   {t.label}
-                </TabsTrigger>
+                </Tabs.Tab>
               ))}
-            </TabsList>
-          </div>
+            </Tabs.List>
+          </Tabs.ListContainer>
+        </div>
 
-          <ScrollArea className="flex-1">
-            <div className="px-6 py-6">
-              {/* ===== Providers ===== */}
-              <TabsContent value="providers" className="mt-0 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold">API Providers</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Add OpenAI-compatible endpoints and their models
-                    </p>
-                  </div>
-                  <Button size="sm" onClick={() => setShowProviderForm(true)}>
-                    <Plus />
-                    Add Provider
-                  </Button>
-                </div>
-
-                {showProviderForm && (
-                  <Card className="border-border">
-                    <CardContent className="space-y-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="prov-name">Provider name</Label>
-                        <Input
-                          id="prov-name"
-                          value={providerName}
-                          onChange={(e) => setProviderName(e.target.value)}
-                          placeholder="e.g. OpenRouter"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="prov-url">Base URL</Label>
-                        <Input
-                          id="prov-url"
-                          value={providerUrl}
-                          onChange={(e) => setProviderUrl(e.target.value)}
-                          placeholder="https://openrouter.ai/api/v1"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="prov-key">API Key</Label>
-                        <div className="relative">
-                          <Input
-                            id="prov-key"
-                            type={showKey ? 'text' : 'password'}
-                            value={providerKey}
-                            onChange={(e) => setProviderKey(e.target.value)}
-                            placeholder="sk-..."
-                            className="pr-10"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            onClick={() => setShowKey(!showKey)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-                            aria-label={showKey ? 'Hide key' : 'Show key'}
-                          >
-                            {showKey ? <EyeOff /> : <Eye />}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <Button size="sm" onClick={handleAddProvider}>
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowProviderForm(false)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {providers.length === 0 && !showProviderForm && (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No providers configured. Add one to get started.
+        <ScrollShadow className="flex-1 overflow-y-auto" orientation="vertical" size={8}>
+          <div className="px-6 py-6">
+            {/* ===== Providers ===== */}
+            <Tabs.Panel id="providers" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold">API Providers</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Add OpenAI-compatible endpoints and their models
                   </p>
-                )}
+                </div>
+                <PrimaryButton onClick={() => setShowProviderForm(true)}>
+                  <Plus size={15} />
+                  Add Provider
+                </PrimaryButton>
+              </div>
 
-                {providers.map((p) => (
-                  <Card key={p.id} className="border-border">
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-sm font-semibold">{p.name}</h4>
-                            <Button
-                              size="xs"
-                              variant={activeProviderId === p.id ? 'default' : 'outline'}
-                              onClick={() => {
-                                setActiveProvider(p.id);
-                                if (p.models.length > 0) setActiveModel(p.models[0].id);
-                                saveSettings();
-                              }}
-                            >
-                              {activeProviderId === p.id ? 'Active' : 'Set Active'}
-                            </Button>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
-                            {p.baseUrl}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-muted-foreground hover:text-destructive"
+              {showProviderForm && (
+                <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                  <Field label="Provider name" htmlFor="prov-name">
+                    <TextInput
+                      id="prov-name"
+                      value={providerName}
+                      onChange={setProviderName}
+                      placeholder="e.g. OpenRouter"
+                    />
+                  </Field>
+                  <Field label="Base URL" htmlFor="prov-url">
+                    <TextInput
+                      id="prov-url"
+                      value={providerUrl}
+                      onChange={setProviderUrl}
+                      placeholder="https://openrouter.ai/api/v1"
+                    />
+                  </Field>
+                  <Field label="API Key" htmlFor="prov-key">
+                    <div className="relative">
+                      <TextInput
+                        id="prov-key"
+                        type={showKey ? 'text' : 'password'}
+                        value={providerKey}
+                        onChange={setProviderKey}
+                        placeholder="sk-..."
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowKey(!showKey)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 grid size-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-bg transition-colors"
+                        aria-label={showKey ? 'Hide key' : 'Show key'}
+                      >
+                        {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </Field>
+                  <div className="flex gap-2 pt-1">
+                    <PrimaryButton onClick={handleAddProvider}>Save</PrimaryButton>
+                    <GhostButton onClick={() => setShowProviderForm(false)}>Cancel</GhostButton>
+                  </div>
+                </div>
+              )}
+
+              {providers.length === 0 && !showProviderForm && (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No providers configured. Add one to get started.
+                </p>
+              )}
+
+              {providers.map((p) => (
+                <div key={p.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-semibold">{p.name}</h4>
+                        <button
+                          type="button"
                           onClick={() => {
-                            removeProvider(p.id);
+                            setActiveProvider(p.id);
+                            if (p.models.length > 0) setActiveModel(p.models[0].id);
                             saveSettings();
                           }}
-                          aria-label={`Delete ${p.name}`}
+                          className={cn(
+                            'h-6 px-2 rounded-md text-[11px] font-medium transition-colors',
+                            activeProviderId === p.id
+                              ? 'bg-primary text-primary-foreground'
+                              : 'border border-border hover:bg-muted-bg'
+                          )}
                         >
-                          <Trash2 />
-                        </Button>
+                          {activeProviderId === p.id ? 'Active' : 'Set Active'}
+                        </button>
                       </div>
+                      <p className="text-xs text-muted-foreground mt-1 truncate">{p.baseUrl}</p>
+                    </div>
+                    <IconGhostButton
+                      onClick={() => {
+                        removeProvider(p.id);
+                        saveSettings();
+                      }}
+                      ariaLabel={`Delete ${p.name}`}
+                      className="hover:text-destructive"
+                    >
+                      <Trash2 size={16} />
+                    </IconGhostButton>
+                  </div>
 
-                      <div className="space-y-2">
-                        {p.models.map((m) => (
-                          <div
-                            key={m.id}
-                            className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-muted/60 border border-border"
+                  <div className="space-y-2">
+                    {p.models.map((m) => (
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-muted-bg/60 border border-border"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Cpu size={14} className="shrink-0 text-muted-foreground" />
+                          <span className="text-sm truncate">{m.displayName}</span>
+                          <span className="text-xs text-muted-foreground hidden sm:inline">
+                            {m.modelId}
+                          </span>
+                          {activeProviderId === p.id && activeModelId === m.id && (
+                            <span className="shrink-0 h-5 px-1.5 rounded text-[10px] font-medium bg-primary text-primary-foreground grid place-items-center">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {m.supportsVision && (
+                            <span className="hidden sm:inline-flex h-5 px-1.5 rounded text-[10px] font-medium bg-muted-bg border border-border text-muted-foreground items-center">
+                              Vision
+                            </span>
+                          )}
+                          {m.supportsTools && (
+                            <span className="hidden sm:inline-flex h-5 px-1.5 rounded text-[10px] font-medium bg-success/15 text-success border border-success/20 items-center">
+                              Tools
+                            </span>
+                          )}
+                          <IconGhostButton
+                            onClick={() => {
+                              setActiveModel(m.id);
+                              setActiveProvider(p.id);
+                              saveSettings();
+                            }}
+                            ariaLabel={`Set ${m.displayName} active`}
+                            title="Set as active model"
+                            className="hover:text-primary size-7"
                           >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <Cpu size={14} className="shrink-0 text-muted-foreground" />
-                              <span className="text-sm truncate">{m.displayName}</span>
-                              <span className="text-xs text-muted-foreground hidden sm:inline">
-                                {m.modelId}
-                              </span>
-                              {activeProviderId === p.id && activeModelId === m.id && (
-                                <Badge variant="default" className="shrink-0">
-                                  Active
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {m.supportsVision && (
-                                <Badge variant="secondary" className="hidden sm:inline-flex">
-                                  Vision
-                                </Badge>
-                              )}
-                              {m.supportsTools && (
-                                <Badge
-                                  variant="secondary"
-                                  className="hidden sm:inline-flex bg-success/15 text-success border-success/20"
-                                >
-                                  Tools
-                                </Badge>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                className="text-muted-foreground hover:text-primary"
-                                onClick={() => {
-                                  setActiveModel(m.id);
-                                  setActiveProvider(p.id);
-                                  saveSettings();
-                                }}
-                                aria-label={`Set ${m.displayName} active`}
-                                title="Set as active model"
-                              >
-                                <Cpu />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                className="text-muted-foreground hover:text-destructive"
-                                onClick={() => {
-                                  removeModelFromProvider(p.id, m.id);
-                                  saveSettings();
-                                }}
-                                aria-label={`Delete ${m.displayName}`}
-                              >
-                                <Trash2 />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
+                            <Cpu size={14} />
+                          </IconGhostButton>
+                          <IconGhostButton
+                            onClick={() => {
+                              removeModelFromProvider(p.id, m.id);
+                              saveSettings();
+                            }}
+                            ariaLabel={`Delete ${m.displayName}`}
+                            className="hover:text-destructive size-7"
+                          >
+                            <Trash2 size={14} />
+                          </IconGhostButton>
+                        </div>
+                      </div>
+                    ))}
 
-                        {showModelForm === p.id ? (
-                          <div className="rounded-xl bg-muted/40 border border-border p-4 space-y-3">
-                            <div className="space-y-1.5">
-                              <Label htmlFor="mod-id">Model ID</Label>
-                              <Input
-                                id="mod-id"
-                                value={modelId}
-                                onChange={(e) => setModelId(e.target.value)}
-                                placeholder="gpt-4o"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label htmlFor="mod-name">Display name</Label>
-                              <Input
-                                id="mod-name"
-                                value={modelName}
-                                onChange={(e) => setModelName(e.target.value)}
-                                placeholder="GPT-4o"
-                              />
-                            </div>
-                            <div className="flex gap-5">
-                              <Label className="flex items-center gap-2 text-sm cursor-pointer font-normal">
-                                <Checkbox
-                                  checked={modelVision}
-                                  onCheckedChange={(v) => setModelVision(v === true)}
-                                />
-                                Vision
-                              </Label>
-                              <Label className="flex items-center gap-2 text-sm cursor-pointer font-normal">
-                                <Checkbox
-                                  checked={modelTools}
-                                  onCheckedChange={(v) => setModelTools(v === true)}
-                                />
-                                Tools
-                              </Label>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="space-y-1.5">
-                                <Label htmlFor="mod-ctx">Context window</Label>
-                                <Input
-                                  id="mod-ctx"
-                                  type="number"
-                                  value={modelContext}
-                                  onChange={(e) => setModelContext(e.target.value)}
-                                />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label htmlFor="mod-out">Max output tokens</Label>
-                                <Input
-                                  id="mod-out"
-                                  type="number"
-                                  value={modelMaxOutput}
-                                  onChange={(e) => setModelMaxOutput(e.target.value)}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex gap-2 pt-1">
-                              <Button size="sm" onClick={() => handleAddModel(p.id)}>
-                                Add
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setShowModelForm(null)}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setShowModelForm(p.id)}
-                            className="w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border border-dashed border-border text-muted-foreground text-sm hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-                          >
-                            <Plus size={14} /> Add Model
-                          </button>
+                    {showModelForm === p.id ? (
+                      <div className="rounded-xl bg-muted-bg/40 border border-border p-4 space-y-3">
+                        <Field label="Model ID" htmlFor="mod-id">
+                          <TextInput
+                            id="mod-id"
+                            value={modelId}
+                            onChange={setModelId}
+                            placeholder="gpt-4o"
+                          />
+                        </Field>
+                        <Field label="Display name" htmlFor="mod-name">
+                          <TextInput
+                            id="mod-name"
+                            value={modelName}
+                            onChange={setModelName}
+                            placeholder="GPT-4o"
+                          />
+                        </Field>
+                        <div className="flex gap-5">
+                          <CheckBox
+                            id="mod-vision"
+                            label="Vision"
+                            checked={modelVision}
+                            onChange={setModelVision}
+                          />
+                          <CheckBox
+                            id="mod-tools"
+                            label="Tools"
+                            checked={modelTools}
+                            onChange={setModelTools}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Field label="Context window" htmlFor="mod-ctx">
+                            <TextInput
+                              id="mod-ctx"
+                              type="number"
+                              value={modelContext}
+                              onChange={setModelContext}
+                            />
+                          </Field>
+                          <Field label="Max output tokens" htmlFor="mod-out">
+                            <TextInput
+                              id="mod-out"
+                              type="number"
+                              value={modelMaxOutput}
+                              onChange={setModelMaxOutput}
+                            />
+                          </Field>
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <PrimaryButton onClick={() => handleAddModel(p.id)}>Add</PrimaryButton>
+                          <GhostButton onClick={() => setShowModelForm(null)}>Cancel</GhostButton>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowModelForm(p.id)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border border-dashed border-border text-muted-foreground text-sm hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
+                      >
+                        <Plus size={14} /> Add Model
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </Tabs.Panel>
+
+            {/* ===== Themes ===== */}
+            <Tabs.Panel id="themes" className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold">Theme</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Dracula is the default. Tap to switch.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {THEMES.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    aria-pressed={theme === t.id}
+                    aria-label={`Theme ${t.name}`}
+                    onClick={() => {
+                      setTheme(t.id);
+                      saveSettings();
+                    }}
+                    className={cn(
+                      'flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]',
+                      theme === t.id
+                        ? 'border-primary ring-2 ring-primary/30 bg-primary/5'
+                        : 'border-border hover:border-primary/40 bg-card hover:bg-muted-bg'
+                    )}
+                  >
+                    <div className="flex gap-1.5 shrink-0">
+                      <div
+                        className="size-7 rounded-full border border-white/10 shadow-sm"
+                        style={{ backgroundColor: t.bgPreview }}
+                      />
+                      <div
+                        className="size-7 rounded-full border border-white/10 shadow-sm"
+                        style={{ backgroundColor: t.accentPreview }}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{t.name}</p>
+                        {t.id === 'dracula' && (
+                          <span className="text-[10px] h-4 px-1 rounded bg-muted-bg border border-border text-muted-foreground grid place-items-center">
+                            default
+                          </span>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
+                      <p className="text-xs text-muted-foreground mt-0.5">{t.description}</p>
+                    </div>
+                  </button>
                 ))}
-              </TabsContent>
+              </div>
+            </Tabs.Panel>
 
-              {/* ===== Themes ===== */}
-              <TabsContent value="themes" className="mt-0 space-y-4">
+            {/* ===== MCP ===== */}
+            <Tabs.Panel id="mcp" className="space-y-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold">Theme</h3>
+                  <h3 className="text-sm font-semibold">MCP Servers (Remote)</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Dracula is the default. Tap to switch.
+                    Streamable HTTP transport — mobile compatible
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {THEMES.map((t) => (
-                    <button
-                      key={t.id}
-                      aria-pressed={theme === t.id}
-                      aria-label={`Theme ${t.name}`}
-                      onClick={() => {
-                        setTheme(t.id);
-                        saveSettings();
-                      }}
-                      className={cn(
-                        'flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]',
-                        theme === t.id
-                          ? 'border-primary ring-2 ring-primary/30 bg-primary/5'
-                          : 'border-border hover:border-primary/40 bg-card hover:bg-muted'
-                      )}
-                    >
-                      <div className="flex gap-1.5 shrink-0">
-                        <div
-                          className="size-7 rounded-full border border-white/10 shadow-sm"
-                          style={{ backgroundColor: t.bgPreview }}
-                        />
-                        <div
-                          className="size-7 rounded-full border border-white/10 shadow-sm"
-                          style={{ backgroundColor: t.accentPreview }}
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium">{t.name}</p>
-                          {t.id === 'dracula' && (
-                            <Badge variant="secondary" className="text-[10px]">
-                              default
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {t.description}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </TabsContent>
+                <PrimaryButton onClick={() => setShowMcpForm(true)}>
+                  <Plus size={15} />
+                  Add
+                </PrimaryButton>
+              </div>
 
-              {/* ===== MCP ===== */}
-              <TabsContent value="mcp" className="mt-0 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold">MCP Servers (Remote)</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Streamable HTTP transport — mobile compatible
-                    </p>
-                  </div>
-                  <Button size="sm" onClick={() => setShowMcpForm(true)}>
-                    <Plus />
-                    Add
-                  </Button>
-                </div>
-
-                {showMcpForm && (
-                  <Card className="border-border">
-                    <CardContent className="space-y-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="mcp-name">Server name</Label>
-                        <Input
-                          id="mcp-name"
-                          value={mcpName}
-                          onChange={(e) => setMcpName(e.target.value)}
-                          placeholder="My MCP Server"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="mcp-url">Server URL</Label>
-                        <Input
-                          id="mcp-url"
-                          value={mcpUrl}
-                          onChange={(e) => setMcpUrl(e.target.value)}
-                          placeholder="https://mcp.example.com/mcp"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="mcp-headers">Headers JSON (optional)</Label>
-                        <Textarea
-                          id="mcp-headers"
-                          value={mcpHeaders}
-                          onChange={(e) => setMcpHeaders(e.target.value)}
-                          placeholder='{"Authorization": "Bearer token"}'
-                          rows={2}
-                          className="font-mono"
-                        />
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <Button size="sm" onClick={handleAddMcp}>
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowMcpForm(false)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {mcpServers.length === 0 && !showMcpForm && (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No MCP servers configured.
-                  </p>
-                )}
-
-                {mcpServers.map((srv) => (
-                  <Card key={srv.id} className="border-border">
-                    <CardContent className="space-y-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <span
-                            className={cn(
-                              'size-2.5 rounded-full shrink-0',
-                              srv.connected
-                                ? 'bg-success'
-                                : srv.isEnabled
-                                  ? 'bg-warning'
-                                  : 'bg-muted-foreground'
-                            )}
-                          />
-                          <h4 className="text-sm font-semibold truncate">{srv.name}</h4>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Switch
-                            checked={srv.isEnabled}
-                            onCheckedChange={(v) => {
-                              updateMcpServer(srv.id, { isEnabled: v });
-                              saveSettings();
-                            }}
-                            aria-label={`Toggle ${srv.name}`}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => {
-                              removeMcpServer(srv.id);
-                              saveSettings();
-                            }}
-                            aria-label={`Delete ${srv.name}`}
-                          >
-                            <Trash2 />
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{srv.url}</p>
-                      {srv.tools.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {srv.tools.map((tool) => (
-                            <Badge key={tool.name} variant="secondary">
-                              {tool.name}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </TabsContent>
-
-              {/* ===== Search ===== */}
-              <TabsContent value="search" className="mt-0 space-y-5">
-                <div>
-                  <h3 className="text-sm font-semibold">Web Search</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Inject a web_search tool into the model
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between p-4 rounded-xl bg-card border border-border">
-                  <Label htmlFor="search-enabled" className="text-sm font-normal">
-                    Enable web search
-                  </Label>
-                  <Switch
-                    id="search-enabled"
-                    checked={searchConfig.enabled}
-                    onCheckedChange={(v) => {
-                      setSearchConfig({ ...searchConfig, enabled: v });
-                      saveSettings();
-                    }}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="search-prov">Provider</Label>
-                  <Select
-                    value={searchConfig.provider}
-                    onValueChange={(v) => {
-                      setSearchConfig({
-                        ...searchConfig,
-                        provider: v as SearchConfig['provider'],
-                      });
-                      saveSettings();
-                    }}
-                  >
-                    <SelectTrigger id="search-prov" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tavily">Tavily (Recommended)</SelectItem>
-                      <SelectItem value="serpapi">SerpAPI</SelectItem>
-                      <SelectItem value="brave">Brave Search</SelectItem>
-                      <SelectItem value="duckduckgo">DuckDuckGo (No key)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {searchConfig.provider !== 'duckduckgo' && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="search-key">API Key</Label>
-                    <Input
-                      id="search-key"
-                      type="password"
-                      value={searchConfig.apiKey}
-                      onChange={(e) => {
-                        setSearchConfig({ ...searchConfig, apiKey: e.target.value });
-                        saveSettings();
-                      }}
-                      placeholder="Enter your API key"
+              {showMcpForm && (
+                <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                  <Field label="Server name" htmlFor="mcp-name">
+                    <TextInput
+                      id="mcp-name"
+                      value={mcpName}
+                      onChange={setMcpName}
+                      placeholder="My MCP Server"
                     />
+                  </Field>
+                  <Field label="Server URL" htmlFor="mcp-url">
+                    <TextInput
+                      id="mcp-url"
+                      value={mcpUrl}
+                      onChange={setMcpUrl}
+                      placeholder="https://mcp.example.com/mcp"
+                    />
+                  </Field>
+                  <Field label="Headers JSON (optional)" htmlFor="mcp-headers">
+                    <TextAreaInput
+                      id="mcp-headers"
+                      value={mcpHeaders}
+                      onChange={setMcpHeaders}
+                      placeholder='{"Authorization": "Bearer token"}'
+                      rows={2}
+                      mono
+                    />
+                  </Field>
+                  <div className="flex gap-2 pt-1">
+                    <PrimaryButton onClick={handleAddMcp}>Save</PrimaryButton>
+                    <GhostButton onClick={() => setShowMcpForm(false)}>Cancel</GhostButton>
                   </div>
-                )}
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Max results</Label>
-                    <Badge variant="secondary">{searchConfig.maxResults}</Badge>
-                  </div>
-                  <Slider
-                    min={1}
-                    max={10}
-                    step={1}
-                    value={[searchConfig.maxResults]}
-                    onValueChange={(v) => {
-                      setSearchConfig({ ...searchConfig, maxResults: v[0] });
-                      saveSettings();
-                    }}
-                  />
                 </div>
-              </TabsContent>
+              )}
 
-              {/* ===== Skills ===== */}
-              <TabsContent value="skills" className="mt-0 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold">Agent Skills</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Markdown content injected into the system prompt
-                    </p>
+              {mcpServers.length === 0 && !showMcpForm && (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No MCP servers configured.
+                </p>
+              )}
+
+              {mcpServers.map((srv) => (
+                <div key={srv.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          'size-2.5 rounded-full shrink-0',
+                          srv.connected
+                            ? 'bg-success'
+                            : srv.isEnabled
+                              ? 'bg-warning'
+                              : 'bg-muted-foreground'
+                        )}
+                      />
+                      <h4 className="text-sm font-semibold truncate">{srv.name}</h4>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Toggle
+                        checked={srv.isEnabled}
+                        onChange={(v) => {
+                          updateMcpServer(srv.id, { isEnabled: v });
+                          saveSettings();
+                        }}
+                        label={`Toggle ${srv.name}`}
+                      />
+                      <IconGhostButton
+                        onClick={() => {
+                          removeMcpServer(srv.id);
+                          saveSettings();
+                        }}
+                        ariaLabel={`Delete ${srv.name}`}
+                        className="hover:text-destructive"
+                      >
+                        <Trash2 size={16} />
+                      </IconGhostButton>
+                    </div>
                   </div>
-                  <Button size="sm" onClick={() => setShowSkillForm(true)}>
-                    <Plus />
-                    Add
-                  </Button>
-                </div>
-
-                {showSkillForm && (
-                  <Card className="border-border">
-                    <CardContent className="space-y-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="skill-name">Skill name</Label>
-                        <Input
-                          id="skill-name"
-                          value={skillName}
-                          onChange={(e) => setSkillName(e.target.value)}
-                          placeholder="My skill"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="skill-desc">Description</Label>
-                        <Input
-                          id="skill-desc"
-                          value={skillDesc}
-                          onChange={(e) => setSkillDesc(e.target.value)}
-                          placeholder="Short description"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="skill-content">Content (Markdown)</Label>
-                        <Textarea
-                          id="skill-content"
-                          value={skillContent}
-                          onChange={(e) => setSkillContent(e.target.value)}
-                          rows={6}
-                          className="font-mono"
-                          placeholder="Skill content — injected into the system prompt"
-                        />
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <Button size="sm" onClick={handleAddSkill}>
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowSkillForm(false)}
+                  <p className="text-xs text-muted-foreground truncate">{srv.url}</p>
+                  {srv.tools.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {srv.tools.map((tool) => (
+                        <span
+                          key={tool.name}
+                          className="h-5 px-1.5 rounded text-[10px] font-medium bg-muted-bg border border-border text-muted-foreground inline-flex items-center"
                         >
-                          Cancel
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                          {tool.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </Tabs.Panel>
 
-                {agentSkills.length === 0 && !showSkillForm && (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No agent skills configured.
-                  </p>
-                )}
+            {/* ===== Search ===== */}
+            <Tabs.Panel id="search" className="space-y-5">
+              <div>
+                <h3 className="text-sm font-semibold">Web Search</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Inject a web_search tool into the model
+                </p>
+              </div>
 
-                {agentSkills.map((skill) => (
-                  <Card key={skill.id} className="border-border">
-                    <CardContent className="space-y-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-sm font-semibold">{skill.name}</h4>
-                          {skill.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {skill.description}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Switch
-                            checked={skill.isEnabled}
-                            onCheckedChange={(v) => {
-                              updateAgentSkill(skill.id, { isEnabled: v });
-                              saveSettings();
-                            }}
-                            aria-label={`Toggle ${skill.name}`}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => {
-                              removeAgentSkill(skill.id);
-                              saveSettings();
-                            }}
-                            aria-label={`Delete ${skill.name}`}
-                          >
-                            <Trash2 />
-                          </Button>
-                        </div>
-                      </div>
-                      <pre className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 max-h-24 overflow-auto leading-relaxed font-mono border border-border">
-                        {skill.content.slice(0, 200)}
-                        {skill.content.length > 200 ? '...' : ''}
-                      </pre>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="flex items-center justify-between p-4 rounded-xl bg-card border border-border">
+                <label htmlFor="search-enabled" className="text-sm">
+                  Enable web search
+                </label>
+                <Toggle
+                  id="search-enabled"
+                  checked={searchConfig.enabled}
+                  onChange={(v) => {
+                    setSearchConfig({ ...searchConfig, enabled: v });
+                    saveSettings();
+                  }}
+                  label="Enable web search"
+                />
+              </div>
 
-                <Separator />
+              <Field label="Provider" htmlFor="search-prov">
+                <SelectInput
+                  id="search-prov"
+                  value={searchConfig.provider}
+                  onChange={(v) => {
+                    setSearchConfig({
+                      ...searchConfig,
+                      provider: v as SearchConfig['provider'],
+                    });
+                    saveSettings();
+                  }}
+                >
+                  <option value="tavily">Tavily (Recommended)</option>
+                  <option value="serpapi">SerpAPI</option>
+                  <option value="brave">Brave Search</option>
+                  <option value="duckduckgo">DuckDuckGo (No key)</option>
+                </SelectInput>
+              </Field>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="sys-prompt">Default System Prompt</Label>
-                  <Textarea
-                    id="sys-prompt"
-                    value={defaultSystemPrompt}
-                    onChange={(e) => {
-                      setDefaultSystemPrompt(e.target.value);
+              {searchConfig.provider !== 'duckduckgo' && (
+                <Field label="API Key" htmlFor="search-key">
+                  <TextInput
+                    id="search-key"
+                    type="password"
+                    value={searchConfig.apiKey}
+                    onChange={(v) => {
+                      setSearchConfig({ ...searchConfig, apiKey: v });
                       saveSettings();
                     }}
-                    rows={4}
-                    className="leading-relaxed"
-                    placeholder="Base instructions for every conversation"
+                    placeholder="Enter your API key"
                   />
-                </div>
-              </TabsContent>
-            </div>
-          </ScrollArea>
-        </Tabs>
+                </Field>
+              )}
 
-        <DialogFooter
-          className="px-6 py-4 border-t border-border justify-end"
-          style={{ paddingBottom: 'max(16px, var(--safe-bottom))' }}
-        >
-          <Button onClick={handleClose}>
-            <Save />
-            Save & Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium">Max results</label>
+                  <span className="h-5 px-1.5 rounded text-[10px] font-medium bg-muted-bg border border-border text-muted-foreground inline-flex items-center">
+                    {searchConfig.maxResults}
+                  </span>
+                </div>
+                <RangeInput
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={searchConfig.maxResults}
+                  onChange={(v) => {
+                    setSearchConfig({ ...searchConfig, maxResults: v });
+                    saveSettings();
+                  }}
+                />
+              </div>
+            </Tabs.Panel>
+
+            {/* ===== Skills ===== */}
+            <Tabs.Panel id="skills" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold">Agent Skills</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Markdown content injected into the system prompt
+                  </p>
+                </div>
+                <PrimaryButton onClick={() => setShowSkillForm(true)}>
+                  <Plus size={15} />
+                  Add
+                </PrimaryButton>
+              </div>
+
+              {showSkillForm && (
+                <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                  <Field label="Skill name" htmlFor="skill-name">
+                    <TextInput
+                      id="skill-name"
+                      value={skillName}
+                      onChange={setSkillName}
+                      placeholder="My skill"
+                    />
+                  </Field>
+                  <Field label="Description" htmlFor="skill-desc">
+                    <TextInput
+                      id="skill-desc"
+                      value={skillDesc}
+                      onChange={setSkillDesc}
+                      placeholder="Short description"
+                    />
+                  </Field>
+                  <Field label="Content (Markdown)" htmlFor="skill-content">
+                    <TextAreaInput
+                      id="skill-content"
+                      value={skillContent}
+                      onChange={setSkillContent}
+                      rows={6}
+                      mono
+                      placeholder="Skill content — injected into the system prompt"
+                    />
+                  </Field>
+                  <div className="flex gap-2 pt-1">
+                    <PrimaryButton onClick={handleAddSkill}>Save</PrimaryButton>
+                    <GhostButton onClick={() => setShowSkillForm(false)}>Cancel</GhostButton>
+                  </div>
+                </div>
+              )}
+
+              {agentSkills.length === 0 && !showSkillForm && (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No agent skills configured.
+                </p>
+              )}
+
+              {agentSkills.map((skill) => (
+                <div key={skill.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm font-semibold">{skill.name}</h4>
+                      {skill.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{skill.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Toggle
+                        checked={skill.isEnabled}
+                        onChange={(v) => {
+                          updateAgentSkill(skill.id, { isEnabled: v });
+                          saveSettings();
+                        }}
+                        label={`Toggle ${skill.name}`}
+                      />
+                      <IconGhostButton
+                        onClick={() => {
+                          removeAgentSkill(skill.id);
+                          saveSettings();
+                        }}
+                        ariaLabel={`Delete ${skill.name}`}
+                        className="hover:text-destructive"
+                      >
+                        <Trash2 size={16} />
+                      </IconGhostButton>
+                    </div>
+                  </div>
+                  <pre className="text-xs text-muted-foreground bg-muted-bg/50 rounded-lg p-3 max-h-24 overflow-auto leading-relaxed font-mono border border-border">
+                    {skill.content.slice(0, 200)}
+                    {skill.content.length > 200 ? '...' : ''}
+                  </pre>
+                </div>
+              ))}
+
+              <Separator />
+
+              <Field label="Default System Prompt" htmlFor="sys-prompt">
+                <TextAreaInput
+                  id="sys-prompt"
+                  value={defaultSystemPrompt}
+                  onChange={(v) => {
+                    setDefaultSystemPrompt(v);
+                    saveSettings();
+                  }}
+                  rows={4}
+                  placeholder="Base instructions for every conversation"
+                />
+              </Field>
+            </Tabs.Panel>
+          </div>
+        </ScrollShadow>
+      </Tabs>
+
+      {/* Footer */}
+      <footer
+        className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border"
+        style={{ paddingBottom: 'max(16px, var(--safe-bottom))' }}
+      >
+        <PrimaryButton onClick={handleClose}>
+          <Save size={15} />
+          Save & Close
+        </PrimaryButton>
+      </footer>
+    </Drawer>
   );
 }

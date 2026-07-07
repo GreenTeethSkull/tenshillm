@@ -2,8 +2,7 @@ import { useState, useRef, type KeyboardEvent } from 'react';
 import { Send, Square, ImagePlus, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import type { Attachment } from '@/types';
-import { Button } from '@/components/ui/button';
-import {cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface Props {
   onSend: (content: string, attachments: Attachment[]) => void;
@@ -99,11 +98,12 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
                     className="size-20 object-cover"
                   />
                 ) : (
-                  <div className="size-20 flex items-center justify-center bg-muted text-xs text-muted-foreground p-2 text-center">
+                  <div className="size-20 flex items-center justify-center bg-muted-bg text-xs text-muted-foreground p-2 text-center">
                     {att.name}
                   </div>
                 )}
                 <button
+                  type="button"
                   onClick={() => removeAttachment(att.id)}
                   aria-label={`Remove attachment ${att.name}`}
                   className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80 active:scale-90 transition-all duration-150"
@@ -128,16 +128,14 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
                 onChange={handleFileSelect}
                 aria-label="Image upload"
               />
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="icon"
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Attach image"
-                className="shrink-0 size-11 rounded-xl"
+                className="shrink-0 size-11 grid place-items-center rounded-xl border border-border bg-card hover:bg-muted-bg transition-colors"
               >
-                <ImagePlus />
-              </Button>
+                <ImagePlus size={18} aria-hidden="true" />
+              </button>
             </>
           )}
 
@@ -153,9 +151,9 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
               rows={1}
               aria-label="Message input"
               className={cn(
-                'w-full resize-none rounded-2xl border border-input bg-muted px-4 py-3.5',
+                'w-full resize-none rounded-2xl border border-input bg-muted-bg px-4 py-3.5',
                 'text-[15px] text-foreground placeholder:text-muted-foreground',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring',
+                'focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring',
                 'transition-all duration-150 leading-relaxed text-pretty min-h-[48px]'
               )}
               style={{ maxHeight: '200px' }}
@@ -164,35 +162,39 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
 
           {/* Send / Stop */}
           {isStreaming ? (
-            <Button
+            <button
+              type="button"
               onClick={onStop}
-              size="icon"
               aria-label="Stop generation"
-              variant="destructive"
-              className="shrink-0 size-11 rounded-full shadow-sm"
+              className="shrink-0 size-11 grid place-items-center rounded-full bg-destructive text-destructive-foreground shadow-sm hover:opacity-90 active:scale-95 transition-all"
             >
               <Square size={18} className="fill-current" aria-hidden="true" />
-            </Button>
+            </button>
           ) : (
-            <Button
+            <button
+              type="button"
               onClick={handleSend}
               disabled={!canSend}
-              size="icon"
               aria-label="Send message"
-              className="shrink-0 size-11 rounded-full shadow-sm"
+              className={cn(
+                'shrink-0 size-11 grid place-items-center rounded-full shadow-sm transition-all',
+                canSend
+                  ? 'bg-primary text-primary-foreground hover:opacity-90 active:scale-95'
+                  : 'bg-muted-bg text-muted-foreground cursor-not-allowed opacity-50'
+              )}
             >
               <Send size={18} aria-hidden="true" />
-            </Button>
+            </button>
           )}
         </div>
 
         <p className="text-[11px] text-muted-foreground text-center mt-2.5">
           Press{' '}
-          <kbd className="px-1 py-0.5 rounded bg-muted border border-border text-[10px] font-mono">
+          <kbd className="px-1 py-0.5 rounded bg-muted-bg border border-border text-[10px] font-mono">
             Enter
           </kbd>{' '}
           to send ·{' '}
-          <kbd className="px-1 py-0.5 rounded bg-muted border border-border text-[10px] font-mono">
+          <kbd className="px-1 py-0.5 rounded bg-muted-bg border border-border text-[10px] font-mono">
             Shift+Enter
           </kbd>{' '}
           for new line

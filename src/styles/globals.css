@@ -1,15 +1,12 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-
-/* shadcn dark variant — toggled via `.dark` class on <html> for dark themes */
-@custom-variant dark (&:is(.dark, .dark *));
+@import "@heroui/styles";
 
 /* =========================================================================
-   TenshiLLM — Design tokens (shadcn/ui semantic layer)
+   TenshiLLM — Design tokens
    Default = Dracula (https://draculatheme.com/spec)
-   Themes override the same variables via [data-theme="..."].
-   The `.dark` class only toggles Tailwind `dark:` utility refinements;
-   actual colors always come from these CSS variables.
+   Themes override the same HSL variables via [data-theme="..."]. All values
+   are FULL colors (hsl(...)) so they work both for our own utilities and for
+   HeroUI components (which consume the same token names directly).
    ========================================================================= */
 @theme inline {
   --color-background: var(--background);
@@ -22,10 +19,8 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
+  --color-muted-bg: var(--muted-bg);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -62,11 +57,47 @@
   --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Consolas,
     monospace;
 
-  /* Safe area */
+  /* Safe area (mobile notches / rounded corners) */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* =========================================================================
+   HeroUI token bridge — maps HeroUI's design tokens to our semantic tokens.
+   Defined once on :root; resolves per-theme because our tokens are set on
+   each [data-theme="..."] block below.
+   - HeroUI "--accent"  = primary action color  -> our --primary
+   - HeroUI "--muted"   = muted text/icons      -> our --muted-foreground
+   - HeroUI "--surface" = card/panel background -> our --card
+   - HeroUI "--overlay" = popover/modal bg       -> our --popover
+   - HeroUI "--danger"  = destructive action     -> our --destructive
+   ========================================================================= */
+:root {
+  --surface: var(--card);
+  --surface-foreground: var(--card-foreground);
+  --surface-secondary: var(--secondary);
+  --surface-secondary-foreground: var(--secondary-foreground);
+  --surface-tertiary: var(--muted-bg);
+  --surface-tertiary-foreground: var(--foreground);
+  --overlay: var(--popover);
+  --overlay-foreground: var(--popover-foreground);
+  --accent: var(--primary);
+  --accent-foreground: var(--primary-foreground);
+  --default: var(--secondary);
+  --default-foreground: var(--secondary-foreground);
+  --danger: var(--destructive);
+  --danger-foreground: var(--destructive-foreground);
+  --muted: var(--muted-foreground);
+  --field-background: var(--card);
+  --field-foreground: var(--foreground);
+  --field-placeholder: var(--muted-foreground);
+  --field-border: var(--border);
+  --separator: var(--border);
+  --focus: var(--ring);
+  --link: var(--primary);
+  --backdrop: var(--code-bg);
 }
 
 /* =========================================================================
@@ -77,45 +108,43 @@
 [data-theme="dracula"] {
   --radius: 0.65rem;
 
-  --background: 231 15% 18%;
-  --foreground: 60 30% 96%;
-  --card: 225 15% 24%;
-  --card-foreground: 60 30% 96%;
-  --popover: 225 15% 24%;
-  --popover-foreground: 60 30% 96%;
-  --primary: 265 89% 78%;
-  --primary-foreground: 231 15% 18%;
-  --secondary: 232 14% 31%;
-  --secondary-foreground: 60 30% 96%;
-  --muted: 225 15% 24%;
-  --muted-foreground: 225 27% 51%;
-  --accent: 232 14% 31%;
-  --accent-foreground: 60 30% 96%;
-  --destructive: 12 71% 54%;
-  --destructive-foreground: 60 30% 96%;
-  --border: 232 14% 31%;
-  --input: 225 27% 51%;
-  --ring: 258 61% 60%;
+  --background: hsl(231 15% 18%);
+  --foreground: hsl(60 30% 96%);
+  --card: hsl(225 15% 24%);
+  --card-foreground: hsl(60 30% 96%);
+  --popover: hsl(225 15% 24%);
+  --popover-foreground: hsl(60 30% 96%);
+  --primary: hsl(265 89% 78%);
+  --primary-foreground: hsl(231 15% 18%);
+  --secondary: hsl(232 14% 31%);
+  --secondary-foreground: hsl(60 30% 96%);
+  --muted-bg: hsl(225 15% 24%);
+  --muted-foreground: hsl(225 27% 51%);
+  --destructive: hsl(12 71% 54%);
+  --destructive-foreground: hsl(60 30% 96%);
+  --border: hsl(232 14% 31%);
+  --input: hsl(225 27% 51%);
+  --ring: hsl(258 61% 60%);
 
-  --success: 120 90% 30%;
-  --success-foreground: 60 30% 96%;
-  --warning: 54 78% 36%;
-  --warning-foreground: 60 30% 96%;
-  --info: 204 100% 42%;
-  --info-foreground: 60 30% 96%;
+  --success: hsl(120 90% 30%);
+  --success-foreground: hsl(60 30% 96%);
+  --warning: hsl(54 78% 36%);
+  --warning-foreground: hsl(60 30% 96%);
+  --info: hsl(204 100% 42%);
+  --info-foreground: hsl(60 30% 96%);
 
-  --sidebar: 235 14% 15%;
-  --sidebar-foreground: 60 30% 96%;
-  --sidebar-border: 232 14% 28%;
-  --sidebar-accent: 232 14% 31%;
-  --sidebar-accent-foreground: 60 30% 96%;
-  --sidebar-ring: 258 61% 60%;
+  --sidebar: hsl(235 14% 15%);
+  --sidebar-foreground: hsl(60 30% 96%);
+  --sidebar-border: hsl(232 14% 28%);
+  --sidebar-accent: hsl(232 14% 31%);
+  --sidebar-accent-foreground: hsl(60 30% 96%);
+  --sidebar-ring: hsl(258 61% 60%);
 
-  --user-bubble: 265 89% 78%;
-  --user-bubble-foreground: 231 15% 18%;
-  --code-bg: 232 14% 11%;
-  --scrollbar: 232 14% 28%;
-  --scrollbar-thumb: 225 27% 45%;
+  --user-bubble: hsl(265 89% 78%);
+  --user-bubble-foreground: hsl(231 15% 18%);
+  --code-bg: hsl(232 14% 11%);
+  --scrollbar: hsl(232 14% 28%);
+  --scrollbar-thumb: hsl(225 27% 45%);
 }
 
 /* =========================================================================
@@ -124,45 +153,43 @@
 [data-theme="alucard"] {
   --radius: 0.65rem;
 
-  --background: 48 100% 96%;
-  --foreground: 0 0% 12%;
-  --card: 46 25% 90%;
-  --card-foreground: 0 0% 12%;
-  --popover: 48 100% 96%;
-  --popover-foreground: 0 0% 12%;
-  --primary: 252 54% 54%;
-  --primary-foreground: 48 100% 96%;
-  --secondary: 240 18% 84%;
-  --secondary-foreground: 0 0% 12%;
-  --muted: 52 19% 84%;
-  --muted-foreground: 49 18% 36%;
-  --accent: 240 18% 84%;
-  --accent-foreground: 0 0% 12%;
-  --destructive: 6 66% 48%;
-  --destructive-foreground: 48 100% 96%;
-  --border: 50 15% 80%;
-  --input: 49 18% 65%;
-  --ring: 252 54% 54%;
+  --background: hsl(48 100% 96%);
+  --foreground: hsl(0 0% 12%);
+  --card: hsl(46 25% 90%);
+  --card-foreground: hsl(0 0% 12%);
+  --popover: hsl(48 100% 96%);
+  --popover-foreground: hsl(0 0% 12%);
+  --primary: hsl(252 54% 54%);
+  --primary-foreground: hsl(48 100% 96%);
+  --secondary: hsl(240 18% 84%);
+  --secondary-foreground: hsl(0 0% 12%);
+  --muted-bg: hsl(52 19% 84%);
+  --muted-foreground: hsl(49 18% 36%);
+  --destructive: hsl(6 66% 48%);
+  --destructive-foreground: hsl(48 100% 96%);
+  --border: hsl(50 15% 80%);
+  --input: hsl(49 18% 65%);
+  --ring: hsl(252 54% 54%);
 
-  --success: 114 84% 24%;
-  --success-foreground: 48 100% 96%;
-  --warning: 48 73% 30%;
-  --warning-foreground: 48 100% 96%;
-  --info: 198 96% 30%;
-  --info-foreground: 48 100% 96%;
+  --success: hsl(114 84% 24%);
+  --success-foreground: hsl(48 100% 96%);
+  --warning: hsl(48 73% 30%);
+  --warning-foreground: hsl(48 100% 96%);
+  --info: hsl(198 96% 30%);
+  --info-foreground: hsl(48 100% 96%);
 
-  --sidebar: 52 19% 84%;
-  --sidebar-foreground: 0 0% 12%;
-  --sidebar-border: 50 15% 78%;
-  --sidebar-accent: 240 18% 80%;
-  --sidebar-accent-foreground: 0 0% 12%;
-  --sidebar-ring: 252 54% 54%;
+  --sidebar: hsl(52 19% 84%);
+  --sidebar-foreground: hsl(0 0% 12%);
+  --sidebar-border: hsl(50 15% 78%);
+  --sidebar-accent: hsl(240 18% 80%);
+  --sidebar-accent-foreground: hsl(0 0% 12%);
+  --sidebar-ring: hsl(252 54% 54%);
 
-  --user-bubble: 252 54% 54%;
-  --user-bubble-foreground: 48 100% 96%;
-  --code-bg: 50 15% 86%;
-  --scrollbar: 50 15% 82%;
-  --scrollbar-thumb: 49 18% 60%;
+  --user-bubble: hsl(252 54% 54%);
+  --user-bubble-foreground: hsl(48 100% 96%);
+  --code-bg: hsl(50 15% 86%);
+  --scrollbar: hsl(50 15% 82%);
+  --scrollbar-thumb: hsl(49 18% 60%);
 }
 
 /* =========================================================================
@@ -171,45 +198,43 @@
 [data-theme="tokyo-night"] {
   --radius: 0.65rem;
 
-  --background: 233 28% 13%;
-  --foreground: 230 35% 86%;
-  --card: 234 22% 18%;
-  --card-foreground: 230 35% 86%;
-  --popover: 234 22% 18%;
-  --popover-foreground: 230 35% 86%;
-  --primary: 213 81% 73%;
-  --primary-foreground: 233 28% 13%;
-  --secondary: 233 18% 24%;
-  --secondary-foreground: 230 35% 86%;
-  --muted: 234 22% 18%;
-  --muted-foreground: 223 30% 56%;
-  --accent: 233 18% 24%;
-  --accent-foreground: 230 35% 86%;
-  --destructive: 345 81% 60%;
-  --destructive-foreground: 230 35% 86%;
-  --border: 231 24% 30%;
-  --input: 231 24% 38%;
-  --ring: 213 81% 73%;
+  --background: hsl(233 28% 13%);
+  --foreground: hsl(230 35% 86%);
+  --card: hsl(234 22% 18%);
+  --card-foreground: hsl(230 35% 86%);
+  --popover: hsl(234 22% 18%);
+  --popover-foreground: hsl(230 35% 86%);
+  --primary: hsl(213 81% 73%);
+  --primary-foreground: hsl(233 28% 13%);
+  --secondary: hsl(233 18% 24%);
+  --secondary-foreground: hsl(230 35% 86%);
+  --muted-bg: hsl(234 22% 18%);
+  --muted-foreground: hsl(223 30% 56%);
+  --destructive: hsl(345 81% 60%);
+  --destructive-foreground: hsl(230 35% 86%);
+  --border: hsl(231 24% 30%);
+  --input: hsl(231 24% 38%);
+  --ring: hsl(213 81% 73%);
 
-  --success: 100 58% 71%;
-  --success-foreground: 233 28% 13%;
-  --warning: 40 71% 50%;
-  --warning-foreground: 233 28% 13%;
-  --info: 213 81% 73%;
-  --info-foreground: 233 28% 13%;
+  --success: hsl(100 58% 71%);
+  --success-foreground: hsl(233 28% 13%);
+  --warning: hsl(40 71% 50%);
+  --warning-foreground: hsl(233 28% 13%);
+  --info: hsl(213 81% 73%);
+  --info-foreground: hsl(233 28% 13%);
 
-  --sidebar: 233 33% 10%;
-  --sidebar-foreground: 230 35% 86%;
-  --sidebar-border: 231 24% 24%;
-  --sidebar-accent: 233 18% 24%;
-  --sidebar-accent-foreground: 230 35% 86%;
-  --sidebar-ring: 213 81% 73%;
+  --sidebar: hsl(233 33% 10%);
+  --sidebar-foreground: hsl(230 35% 86%);
+  --sidebar-border: hsl(231 24% 24%);
+  --sidebar-accent: hsl(233 18% 24%);
+  --sidebar-accent-foreground: hsl(230 35% 86%);
+  --sidebar-ring: hsl(213 81% 73%);
 
-  --user-bubble: 213 81% 73%;
-  --user-bubble-foreground: 233 28% 13%;
-  --code-bg: 240 33% 9%;
-  --scrollbar: 231 24% 24%;
-  --scrollbar-thumb: 231 24% 42%;
+  --user-bubble: hsl(213 81% 73%);
+  --user-bubble-foreground: hsl(233 28% 13%);
+  --code-bg: hsl(240 33% 9%);
+  --scrollbar: hsl(231 24% 24%);
+  --scrollbar-thumb: hsl(231 24% 42%);
 }
 
 /* =========================================================================
@@ -218,45 +243,43 @@
 [data-theme="catppuccin"] {
   --radius: 0.65rem;
 
-  --background: 240 21% 15%;
-  --foreground: 228 49% 88%;
-  --card: 234 17% 23%;
-  --card-foreground: 228 49% 88%;
-  --popover: 234 17% 23%;
-  --popover-foreground: 228 49% 88%;
-  --primary: 267 84% 87%;
-  --primary-foreground: 240 21% 15%;
-  --secondary: 234 12% 31%;
-  --secondary-foreground: 228 49% 88%;
-  --muted: 234 17% 23%;
-  --muted-foreground: 228 24% 64%;
-  --accent: 234 12% 31%;
-  --accent-foreground: 228 49% 88%;
-  --destructive: 343 81% 75%;
-  --destructive-foreground: 240 21% 15%;
-  --border: 233 8% 39%;
-  --input: 233 14% 48%;
-  --ring: 267 84% 87%;
+  --background: hsl(240 21% 15%);
+  --foreground: hsl(228 49% 88%);
+  --card: hsl(234 17% 23%);
+  --card-foreground: hsl(228 49% 88%);
+  --popover: hsl(234 17% 23%);
+  --popover-foreground: hsl(228 49% 88%);
+  --primary: hsl(267 84% 87%);
+  --primary-foreground: hsl(240 21% 15%);
+  --secondary: hsl(234 12% 31%);
+  --secondary-foreground: hsl(228 49% 88%);
+  --muted-bg: hsl(234 17% 23%);
+  --muted-foreground: hsl(228 24% 64%);
+  --destructive: hsl(343 81% 75%);
+  --destructive-foreground: hsl(240 21% 15%);
+  --border: hsl(233 8% 39%);
+  --input: hsl(233 14% 48%);
+  --ring: hsl(267 84% 87%);
 
-  --success: 122 56% 74%;
-  --success-foreground: 240 21% 15%;
-  --warning: 49 80% 83%;
-  --warning-foreground: 240 21% 15%;
-  --info: 189 71% 73%;
-  --info-foreground: 240 21% 15%;
+  --success: hsl(122 56% 74%);
+  --success-foreground: hsl(240 21% 15%);
+  --warning: hsl(49 80% 83%);
+  --warning-foreground: hsl(240 21% 15%);
+  --info: hsl(189 71% 73%);
+  --info-foreground: hsl(240 21% 15%);
 
-  --sidebar: 240 24% 12%;
-  --sidebar-foreground: 228 49% 88%;
-  --sidebar-border: 233 10% 30%;
-  --sidebar-accent: 234 12% 31%;
-  --sidebar-accent-foreground: 228 49% 88%;
-  --sidebar-ring: 267 84% 87%;
+  --sidebar: hsl(240 24% 12%);
+  --sidebar-foreground: hsl(228 49% 88%);
+  --sidebar-border: hsl(233 10% 30%);
+  --sidebar-accent: hsl(234 12% 31%);
+  --sidebar-accent-foreground: hsl(228 49% 88%);
+  --sidebar-ring: hsl(267 84% 87%);
 
-  --user-bubble: 267 84% 87%;
-  --user-bubble-foreground: 240 21% 15%;
-  --code-bg: 240 28% 10%;
-  --scrollbar: 233 10% 30%;
-  --scrollbar-thumb: 233 8% 46%;
+  --user-bubble: hsl(267 84% 87%);
+  --user-bubble-foreground: hsl(240 21% 15%);
+  --code-bg: hsl(240 28% 10%);
+  --scrollbar: hsl(233 10% 30%);
+  --scrollbar-thumb: hsl(233 8% 46%);
 }
 
 /* =========================================================================
@@ -265,45 +288,43 @@
 [data-theme="nord"] {
   --radius: 0.65rem;
 
-  --background: 220 16% 22%;
-  --foreground: 218 27% 95%;
-  --card: 222 14% 28%;
-  --card-foreground: 218 27% 95%;
-  --popover: 222 14% 28%;
-  --popover-foreground: 218 27% 95%;
-  --primary: 193 45% 67%;
-  --primary-foreground: 220 16% 22%;
-  --secondary: 220 16% 31%;
-  --secondary-foreground: 218 27% 95%;
-  --muted: 222 14% 28%;
-  --muted-foreground: 216 18% 56%;
-  --accent: 220 16% 31%;
-  --accent-foreground: 218 27% 95%;
-  --destructive: 354 43% 58%;
-  --destructive-foreground: 218 27% 95%;
-  --border: 220 16% 36%;
-  --input: 220 16% 46%;
-  --ring: 193 45% 67%;
+  --background: hsl(220 16% 22%);
+  --foreground: hsl(218 27% 95%);
+  --card: hsl(222 14% 28%);
+  --card-foreground: hsl(218 27% 95%);
+  --popover: hsl(222 14% 28%);
+  --popover-foreground: hsl(218 27% 95%);
+  --primary: hsl(193 45% 67%);
+  --primary-foreground: hsl(220 16% 22%);
+  --secondary: hsl(220 16% 31%);
+  --secondary-foreground: hsl(218 27% 95%);
+  --muted-bg: hsl(222 14% 28%);
+  --muted-foreground: hsl(216 18% 56%);
+  --destructive: hsl(354 43% 58%);
+  --destructive-foreground: hsl(218 27% 95%);
+  --border: hsl(220 16% 36%);
+  --input: hsl(220 16% 46%);
+  --ring: hsl(193 45% 67%);
 
-  --success: 96 36% 66%;
-  --success-foreground: 220 16% 22%;
-  --warning: 40 60% 62%;
-  --warning-foreground: 220 16% 22%;
-  --info: 193 45% 67%;
-  --info-foreground: 220 16% 22%;
+  --success: hsl(96 36% 66%);
+  --success-foreground: hsl(220 16% 22%);
+  --warning: hsl(40 60% 62%);
+  --warning-foreground: hsl(220 16% 22%);
+  --info: hsl(193 45% 67%);
+  --info-foreground: hsl(220 16% 22%);
 
-  --sidebar: 220 20% 16%;
-  --sidebar-foreground: 218 27% 95%;
-  --sidebar-border: 220 16% 30%;
-  --sidebar-accent: 220 16% 31%;
-  --sidebar-accent-foreground: 218 27% 95%;
-  --sidebar-ring: 193 45% 67%;
+  --sidebar: hsl(220 20% 16%);
+  --sidebar-foreground: hsl(218 27% 95%);
+  --sidebar-border: hsl(220 16% 30%);
+  --sidebar-accent: hsl(220 16% 31%);
+  --sidebar-accent-foreground: hsl(218 27% 95%);
+  --sidebar-ring: hsl(193 45% 67%);
 
-  --user-bubble: 193 45% 67%;
-  --user-bubble-foreground: 220 16% 22%;
-  --code-bg: 220 24% 14%;
-  --scrollbar: 220 16% 30%;
-  --scrollbar-thumb: 220 14% 44%;
+  --user-bubble: hsl(193 45% 67%);
+  --user-bubble-foreground: hsl(220 16% 22%);
+  --code-bg: hsl(220 24% 14%);
+  --scrollbar: hsl(220 16% 30%);
+  --scrollbar-thumb: hsl(220 14% 44%);
 }
 
 /* =========================================================================
@@ -312,45 +333,43 @@
 [data-theme="gruvbox"] {
   --radius: 0.65rem;
 
-  --background: 0 0% 14%;
-  --foreground: 39 40% 82%;
-  --card: 30 9% 22%;
-  --card-foreground: 39 40% 82%;
-  --popover: 30 9% 22%;
-  --popover-foreground: 39 40% 82%;
-  --primary: 43 60% 50%;
-  --primary-foreground: 0 0% 14%;
-  --secondary: 30 6% 28%;
-  --secondary-foreground: 39 40% 82%;
-  --muted: 30 9% 22%;
-  --muted-foreground: 39 22% 58%;
-  --accent: 30 6% 28%;
-  --accent-foreground: 39 40% 82%;
-  --destructive: 9 88% 59%;
-  --destructive-foreground: 0 0% 14%;
-  --border: 30 9% 30%;
-  --input: 30 9% 40%;
-  --ring: 43 60% 50%;
+  --background: hsl(0 0% 14%);
+  --foreground: hsl(39 40% 82%);
+  --card: hsl(30 9% 22%);
+  --card-foreground: hsl(39 40% 82%);
+  --popover: hsl(30 9% 22%);
+  --popover-foreground: hsl(39 40% 82%);
+  --primary: hsl(43 60% 50%);
+  --primary-foreground: hsl(0 0% 14%);
+  --secondary: hsl(30 6% 28%);
+  --secondary-foreground: hsl(39 40% 82%);
+  --muted-bg: hsl(30 9% 22%);
+  --muted-foreground: hsl(39 22% 58%);
+  --destructive: hsl(9 88% 59%);
+  --destructive-foreground: hsl(0 0% 14%);
+  --border: hsl(30 9% 30%);
+  --input: hsl(30 9% 40%);
+  --ring: hsl(43 60% 50%);
 
-  --success: 73 64% 64%;
-  --success-foreground: 0 0% 14%;
-  --warning: 42 95% 62%;
-  --warning-foreground: 0 0% 14%;
-  --info: 43 60% 50%;
-  --info-foreground: 0 0% 14%;
+  --success: hsl(73 64% 64%);
+  --success-foreground: hsl(0 0% 14%);
+  --warning: hsl(42 95% 62%);
+  --warning-foreground: hsl(0 0% 14%);
+  --info: hsl(43 60% 50%);
+  --info-foreground: hsl(0 0% 14%);
 
-  --sidebar: 30 14% 10%;
-  --sidebar-foreground: 39 40% 82%;
-  --sidebar-border: 30 9% 22%;
-  --sidebar-accent: 30 6% 28%;
-  --sidebar-accent-foreground: 39 40% 82%;
-  --sidebar-ring: 43 60% 50%;
+  --sidebar: hsl(30 14% 10%);
+  --sidebar-foreground: hsl(39 40% 82%);
+  --sidebar-border: hsl(30 9% 22%);
+  --sidebar-accent: hsl(30 6% 28%);
+  --sidebar-accent-foreground: hsl(39 40% 82%);
+  --sidebar-ring: hsl(43 60% 50%);
 
-  --user-bubble: 43 60% 50%;
-  --user-bubble-foreground: 0 0% 14%;
-  --code-bg: 30 14% 8%;
-  --scrollbar: 30 9% 22%;
-  --scrollbar-thumb: 30 9% 38%;
+  --user-bubble: hsl(43 60% 50%);
+  --user-bubble-foreground: hsl(0 0% 14%);
+  --code-bg: hsl(30 14% 8%);
+  --scrollbar: hsl(30 9% 22%);
+  --scrollbar-thumb: hsl(30 9% 38%);
 }
 
 /* =========================================================================
@@ -373,8 +392,8 @@ body,
 
 body {
   font-family: var(--font-sans);
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background-color: var(--background);
+  color: var(--foreground);
   transition: background-color 0.25s ease, color 0.25s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -408,13 +427,13 @@ blockquote {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--scrollbar-thumb));
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
+  background: var(--muted-foreground);
   background-clip: padding-box;
   border: 2px solid transparent;
 }
@@ -428,9 +447,9 @@ blockquote {
    Code & Markdown
    ========================================================================= */
 pre {
-  background: hsl(var(--code-bg)) !important;
+  background: var(--code-bg) !important;
   border-radius: var(--radius-md);
-  border: 1px solid hsl(var(--border));
+  border: 1px solid var(--border);
   padding: 14px 16px;
   overflow-x: auto;
   font-size: 13px;
@@ -443,11 +462,11 @@ code {
 }
 
 :not(pre) > code {
-  background: hsl(var(--muted));
+  background: var(--muted-bg);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.88em;
-  border: 1px solid hsl(var(--border));
+  border: 1px solid var(--border);
 }
 
 .markdown-body {
@@ -495,11 +514,11 @@ code {
   font-size: 1.1em;
 }
 .markdown-body blockquote {
-  border-left: 3px solid hsl(var(--primary));
+  border-left: 3px solid var(--primary);
   padding: 4px 0 4px 16px;
   margin: 12px 0;
-  color: hsl(var(--muted-foreground));
-  background: hsl(var(--muted));
+  color: var(--muted-foreground);
+  background: var(--muted-bg);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .markdown-body table {
@@ -511,27 +530,27 @@ code {
 }
 .markdown-body th,
 .markdown-body td {
-  border: 1px solid hsl(var(--border));
+  border: 1px solid var(--border);
   padding: 10px 14px;
   text-align: left;
 }
 .markdown-body th {
-  background: hsl(var(--muted));
+  background: var(--muted-bg);
   font-weight: 600;
 }
 .markdown-body a {
-  color: hsl(var(--primary));
+  color: var(--primary);
   text-decoration: none;
   border-bottom: 1px solid
-    color-mix(in srgb, hsl(var(--primary)) 40%, transparent);
+    color-mix(in srgb, var(--primary) 40%, transparent);
   transition: border-color 150ms ease;
 }
 .markdown-body a:hover {
-  border-bottom-color: hsl(var(--primary));
+  border-bottom-color: var(--primary);
 }
 .markdown-body hr {
   border: none;
-  border-top: 1px solid hsl(var(--border));
+  border-top: 1px solid var(--border);
   margin: 20px 0;
 }
 .markdown-body pre {
@@ -541,17 +560,14 @@ code {
 /* highlight.js overrides */
 .hljs {
   background: transparent !important;
-  color: hsl(var(--foreground)) !important;
+  color: var(--foreground) !important;
 }
 
 /* =========================================================================
-   Overlays — solid Dracula dark, no translucency
-   Override shadcn Dialog/Sheet/AlertDialog default bg-black/50
+   HeroUI Modal/Drawer overlay — solid backdrop matching the theme
    ========================================================================= */
-[data-slot="dialog-overlay"],
-[data-slot="sheet-overlay"],
-[data-slot="alert-dialog-overlay"] {
-  background-color: hsl(var(--code-bg)) !important;
+[data-overlay="true"] {
+  background-color: var(--code-bg) !important;
   backdrop-filter: none !important;
 }
 
@@ -580,7 +596,7 @@ code {
   width: 6px;
   height: 6px;
   border-radius: 9999px;
-  background: hsl(var(--primary));
+  background: var(--primary);
   animation: thinking-bounce 1.2s ease-in-out infinite;
 }
 .thinking-dots span:nth-child(2) {
@@ -625,7 +641,6 @@ code {
   animation-delay: 180ms;
 }
 
-/* Modal entrance — applied by shadcn Dialog/Sheet via data attributes */
 @keyframes tenshi-modal-in {
   from {
     opacity: 0;
@@ -644,18 +659,32 @@ code {
     opacity: 1;
   }
 }
+@keyframes tenshi-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 .tenshi-modal-in {
   animation: tenshi-modal-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .tenshi-backdrop-in {
   animation: tenshi-backdrop-in 150ms ease-out;
 }
+.tenshi-drawer-in {
+  animation: tenshi-drawer-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .thinking-dots span,
   .conv-stagger > *,
   .tenshi-modal-in,
-  .tenshi-backdrop-in {
+  .tenshi-backdrop-in,
+  .tenshi-drawer-in {
     animation: none !important;
   }
 }
@@ -670,7 +699,7 @@ button,
 }
 
 :focus-visible {
-  outline: 2px solid hsl(var(--ring));
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }

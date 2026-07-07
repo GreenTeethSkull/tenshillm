@@ -9,9 +9,10 @@
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | Runtime | Tauri | v2.x |
-| Frontend | React | 18+ |
+| Frontend | React | 19.1+ |
+| UI Library | HeroUI | v3.2.2 (React Aria + Tailwind v4, no provider) |
 | Language | TypeScript | 5.8 |
-| Styling | Tailwind CSS | v4 |
+| Styling | Tailwind CSS | v4.3 |
 | State | Zustand | 5.x |
 | Bundler | Vite | 7.x |
 | Package Manager | Bun | 1.3+ |
@@ -24,24 +25,31 @@
 ```
 src/
 ├── main.tsx                  # Entry point, renders App
-├── App.tsx                   # Root component, theme provider
-├── types/index.ts            # All TypeScript interfaces
-├── styles/globals.css        # Tailwind config + 9 theme definitions
+├── App.tsx                   # Root component, theme application + Toaster
+├── types/index.ts            # All TypeScript interfaces + THEMES array
+├── styles/globals.css        # Tailwind + HeroUI styles + 6 themes + token bridge
 ├── stores/                   # Zustand state management
 │   ├── themeStore.ts         # Theme selection persistence
 │   ├── settingsStore.ts      # Providers, MCP, skills, search config
 │   └── chatStore.ts          # Conversations, messages, UI state
 ├── lib/
-│   └── openai.ts             # OpenAI payload builder + stream parser
+│   ├── openai.ts             # OpenAI payload builder + stream parser
+│   └── utils.ts              # Lightweight `cn()` className joiner (no tailwind-merge)
 └── components/
-    ├── sidebar/Sidebar.tsx   # Conversation list + navigation
+    ├── Overlay.tsx           # Custom Drawer (right slide-over) + Modal (centered), Escape-handled
+    ├── primitives.tsx        # Themed Toggle/TextInput/TextAreaInput/SelectInput/RangeInput/CheckBox/Field/Buttons
+    ├── sidebar/Sidebar.tsx   # Conversation list + navigation (HeroUI ScrollShadow + Tooltip)
     ├── chat/
     │   ├── ChatView.tsx      # Main chat interface + streaming logic
-    │   ├── MessageBubble.tsx # Message rendering with Markdown
+    │   ├── MessageBubble.tsx # Message rendering with Markdown (HeroUI Tooltip)
     │   └── MessageInput.tsx  # Input with image upload support
-    ├── settings/SettingsPanel.tsx  # All configuration UI
-    └── cleanup/CleanupPanel.tsx    # Data cleanup tools
+    ├── settings/SettingsPanel.tsx  # Drawer + HeroUI Tabs (Providers/Themes/MCP/Search/Skills)
+    └── cleanup/CleanupPanel.tsx    # Modal with stats + cleanup actions
 ```
+
+> **Note:** There is no `components/ui/` folder. The previous shadcn/ui primitives were
+> removed entirely. Reusable primitives now live in `components/primitives.tsx` (custom,
+> themed, zero-dependency) and overlays in `components/Overlay.tsx`.
 
 ### Backend (Rust + Tauri)
 
@@ -82,14 +90,26 @@ src-tauri/
 - Keys prefixed with `tenshillm-` (e.g., `tenshillm-settings`, `tenshillm-theme`)
 - No cloud storage — 100% local
 
+### 5. HeroUI v3 + Custom Token Bridge
+- **Why**: shadcn/ui was removed; HeroUI v3 is built on React Aria + Tailwind v4 and requires React 19+ (both already present). HeroUI v3 components do **not** require a provider.
+- **How**: HeroUI components consume their own CSS tokens (`--accent`, `--muted`, `--surface`, `--overlay`, `--danger`, `--field-*`, …). A single `:root` block in `globals.css` maps these to our semantic tokens (e.g. `--accent: var(--primary)`, `--muted: var(--muted-foreground)`, `--surface: var(--card)`, `--overlay: var(--popover)`, `--danger: var(--destructive)`). Because resolution is dynamic, every `[data-theme]` block automatically recolors all HeroUI components.
+- **Conflict handling**: HeroUI's `--muted` is a *text* color; our `--muted` was a *background*. We renamed ours to `--muted-bg` and let `--muted` resolve to `--muted-foreground`. HeroUI's `--accent` (primary action) maps to our `--primary`; our former `--accent` (hover bg) is replaced by `--secondary`/`--muted-bg` in custom components.
+- **Custom primitives**: Buttons, text inputs, selects, range sliders, checkboxes and toggles are hand-built in `components/primitives.tsx` (themed, zero-dependency, mobile-friendly). Overlays (Drawer/Modal) are hand-built in `components/Overlay.tsx` with Escape handling. HeroUI is used for `Tabs`, `ScrollShadow`, `Tooltip`, `Separator` where its accessibility + focus management add real value.
+
+### 6. Claude/ChatGPT-Inspired Minimal Layout
+- **Sidebar** (280px, collapsible): brand, New Chat, active provider/model, conversation list, footer (Settings, Cleanup)
+- **Chat**: centered `max-w-3xl` conversation; user messages are right-aligned bubbles; assistant messages have no bubble — full-width with avatar + "Assistant" label
+- **Settings**: right-side `Drawer` with HeroUI `Tabs` (Providers/Themes/MCP/Search/Skills)
+- **Cleanup**: centered `Modal` with stats grid, trash list, and destructive actions
+
 ## State Management
 
 ### Zustand Stores
 
 **themeStore.ts**
 - Persists selected theme to `tenshillm-theme`
-- Applies `data-theme` attribute to `<html>` element
-- 9 themes: light, tokyo-night, dracula, catppuccin, gruvbox, nord, solarized, one-dark, everforest
+- Applies `data-theme` attribute to `<html>` element (and toggles `.dark` for any `dark:` utilities)
+- 6 themes: dracula, alucard, tokyo-night, catppuccin, nord, gruvbox
 
 **settingsStore.ts**
 - `providers`: Array of API providers with models
@@ -118,48 +138,78 @@ src-tauri/
 7. Update UI via Zustand stores
 
 ### MessageBubble.tsx — Rendering
-- **User messages**: right-aligned, `rounded-2xl rounded-tr-md` bubble (asymmetric corner like Telegram/iMessage), `px-5 py-3`, accent color
+- **User messages**: right-aligned, `rounded-2xl rounded-tr-md` bubble (asymmetric corner like Telegram/iMessage), `px-5 py-3`, `bg-user-bubble text-user-bubble-foreground`
 - **Assistant messages**: NO bubble — full-width with 36px avatar + "Assistant" label (Claude/ChatGPT style), content flows naturally via markdown
+- **Tool messages**: avatar (wrench) + "Tool Result" label + `<pre>` block
 - Markdown rendering via `react-markdown` + `remark-gfm`
 - Code blocks with `border` + `rounded-md` and border-radius var
-- Copy button on hover for assistant messages (size-7 grid place-items-center)
+- Copy button on hover for assistant messages (HeroUI `Tooltip` wrapper, size-7 grid place-items-center)
 - Thinking indicator: 3-dot staggered bounce (`.thinking-dots` in globals.css)
 
-### SettingsPanel.tsx — Tabs
-- **Providers**: CRUD for API providers and their models
+### SettingsPanel.tsx — Drawer + Tabs
+- Rendered inside a custom `Drawer` (right slide-over from `Overlay.tsx`) with Escape + backdrop dismissal
+- Uses HeroUI `Tabs` (compound: `Tabs.ListContainer` / `Tabs.List` / `Tabs.Tab` / `Tabs.Panel`) with `selectedKey` + `onSelectionChange`
+- **Providers**: CRUD for API providers and their models (custom `TextInput`/`CheckBox` primitives + inline forms)
 - **Themes**: Visual theme selector with color previews
-- **MCP**: Remote MCP server configuration
-- **Search**: Web search provider setup
-- **Skills**: Agent skill editor with Markdown content
+- **MCP**: Remote MCP server configuration (custom `Toggle` + `TextAreaInput` for headers)
+- **Search**: Web search provider setup (custom `Toggle` + `SelectInput` + `RangeInput` + `TextInput`)
+- **Skills**: Agent skill editor with Markdown content + default system prompt
+
+### CleanupPanel.tsx — Modal
+- Rendered inside a custom `Modal` (centered from `Overlay.tsx`)
+- Stats grid (active chats, trash, total messages, storage)
+- Trash list with restore / permanent-delete per conversation
+- Destructive actions with two-step confirm: **Empty Trash**, **Clear Cache** (`localStorage.removeItem('tenshillm-search-cache')`), **Delete Everything**
 
 ## CSS Theming System
 
-Themes use CSS custom properties prefixed with `--theme-`:
+Themes are defined as **full HSL color values** (not component triples) on `[data-theme="..."]` blocks, so the same variables work both for our own Tailwind utilities and for HeroUI components (which consume tokens directly):
 
 ```css
 [data-theme="tokyo-night"] {
-  --theme-bg: #1a1b26;
-  --theme-accent: #7aa2f7;
-  --theme-text: #c0caf5;
+  --background: hsl(233 28% 13%);
+  --primary: hsl(213 81% 73%);
+  --muted-bg: hsl(234 22% 18%);   /* renamed from --muted (now HeroUI's muted text) */
+  --muted-foreground: hsl(223 30% 56%);
   /* ... */
 }
 ```
 
-Tailwind v4 maps these to utility classes:
+Tailwind v4 maps these to utility classes via an `@theme inline` block:
 ```css
-@theme {
-  --color-bg: var(--theme-bg);
-  --color-accent: var(--theme-accent);
+@theme inline {
+  --color-background: var(--background);
+  --color-primary: var(--primary);
+  --color-muted-bg: var(--muted-bg);
   /* ... */
 }
 ```
+
+### HeroUI Token Bridge
+A single shared `:root` block maps HeroUI's design tokens to our semantic tokens. Because CSS custom property resolution is dynamic, the mapping automatically picks up each theme's values:
+
+```css
+:root {
+  --accent: var(--primary);              /* HeroUI primary action  -> our primary */
+  --muted: var(--muted-foreground);      /* HeroUI muted text      -> our muted-foreground */
+  --surface: var(--card);                /* HeroUI card/panel bg   -> our card */
+  --overlay: var(--popover);             /* HeroUI popover/modal    -> our popover */
+  --danger: var(--destructive);
+  --field-background: var(--card);
+  --field-placeholder: var(--muted-foreground);
+  --backdrop: var(--code-bg);
+  /* ... */
+}
+```
+
+> **Key rename**: our previous `--muted` (background) is now `--muted-bg`; `--muted` is owned by HeroUI and resolves to our `--muted-foreground`. Use `bg-muted-bg` for muted backgrounds and `text-muted-foreground` for muted text.
 
 ## Common Tasks
 
 ### Adding a New Theme
-1. Add theme definition to `src/styles/globals.css` with `[data-theme="name"]`
+1. Add theme definition to `src/styles/globals.css` with `[data-theme="name"]` — use **full HSL color values** (e.g. `--background: hsl(233 28% 13%);`), not component triples
 2. Add theme info to `THEMES` array in `src/types/index.ts`
-3. Theme automatically appears in Settings > Themes
+3. Theme automatically appears in Settings > Themes (HeroUI token bridge recolors all components automatically)
 
 ### Adding a New Tauri Command
 1. Add command function in `src-tauri/src/lib.rs`
@@ -276,7 +326,7 @@ ln -sf aarch64-linux-android21-clang++ aarch64-linux-android-clang++
 - Components: PascalCase (`ChatView.tsx`, `MessageBubble.tsx`)
 - Stores: camelCase with `Store` suffix (`themeStore.ts`, `chatStore.ts`)
 - Types: PascalCase interfaces (`ApiProvider`, `Conversation`)
-- CSS: kebab-case for theme names (`tokyo-night`, `one-dark`)
+- CSS: kebab-case for theme names (`tokyo-night`, `catppuccin`)
 - Rust: snake_case (`lib.rs`, `chat.rs`)
 
 ## Dependencies
@@ -289,14 +339,15 @@ ln -sf aarch64-linux-android21-clang++ aarch64-linux-android-clang++
 - `@tauri-apps/plugin-shell`: Shell commands
 - `@tauri-apps/plugin-dialog`: Native dialogs
 - `@tauri-apps/plugin-clipboard-manager`: Clipboard access
+- `@heroui/react` + `@heroui/styles`: HeroUI v3 component library (React Aria + Tailwind v4)
 - `@fontsource-variable/inter`: Self-hosted Inter Variable font (woff2, no Google Fonts — CSP-compatible with Tauri)
 - `zustand`: State management
-- `react-markdown`: Markdown rendering
-- `remark-gfm`: GitHub Flavored Markdown
-- `rehype-highlight`: Code syntax highlighting
+- `react-markdown` + `remark-gfm` + `rehype-highlight`: Markdown rendering with syntax highlighting
 - `lucide-react`: Icons
+- `sonner`: Toast notifications
 - `nanoid`: ID generation
-- `date-fns`: Date formatting
+
+> **Removed (shadcn/ui stack):** `radix-ui`, all `@radix-ui/*`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tw-animate-css`, `next-themes`. The `src/components/ui/` folder no longer exists.
 
 ### Backend (Cargo.toml)
 - `tauri`: Core framework

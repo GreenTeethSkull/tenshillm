@@ -8,7 +8,6 @@ import { nanoid } from 'nanoid';
 import type { Message, Attachment } from '@/types';
 import { buildChatPayload, parseStreamChunk } from '@/lib/openai';
 import { fetch } from '@tauri-apps/plugin-http';
-import { Button } from '@/components/ui/button';
 
 export function ChatView() {
   const {
@@ -211,24 +210,22 @@ export function ChatView() {
           className="flex items-center justify-between px-4 md:px-6 border-b border-border bg-background"
           style={{ paddingTop: 'max(12px, var(--safe-top))', paddingBottom: '12px' }}
         >
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          <button
+            type="button"
             onClick={() => setSidebarOpen(true)}
             aria-label="Open sidebar"
-            className="-ml-1 text-muted-foreground"
+            className="-ml-1 grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted-bg transition-colors"
           >
             <PanelLeftOpen size={20} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          </button>
+          <button
+            type="button"
             onClick={() => setSettingsOpen(true)}
             aria-label="Open settings"
-            className="-mr-1 text-muted-foreground"
+            className="-mr-1 grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted-bg transition-colors"
           >
             <Settings size={20} />
-          </Button>
+          </button>
         </header>
 
         {/* Hero empty state */}
@@ -242,9 +239,13 @@ export function ChatView() {
           <p className="text-sm leading-relaxed text-pretty max-w-[320px] mb-8 text-muted-foreground">
             Connect any OpenAI-compatible provider and start chatting. Your data stays on this device — no cloud, no tracking.
           </p>
-          <Button size="lg" onClick={() => setSettingsOpen(true)}>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:opacity-90 active:scale-[0.98] transition-all"
+          >
             Configure your first provider
-          </Button>
+          </button>
           <p className="text-xs text-muted-foreground mt-4">
             Tip: open the sidebar with the menu icon to start a new chat.
           </p>
@@ -257,19 +258,18 @@ export function ChatView() {
     <div className="flex-1 flex flex-col min-h-0">
       {/* Header */}
       <header
-className="flex items-center justify-between px-4 md:px-6 border-b border-border bg-background"
-          style={{ paddingTop: 'max(12px, var(--safe-top))', paddingBottom: '12px' }}
-        >
+        className="flex items-center justify-between px-4 md:px-6 border-b border-border bg-background"
+        style={{ paddingTop: 'max(12px, var(--safe-top))', paddingBottom: '12px' }}
+      >
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          <button
+            type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-            className={sidebarOpen ? 'lg:hidden -ml-1 text-muted-foreground' : '-ml-1 text-muted-foreground'}
+            className="-ml-1 grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted-bg transition-colors"
           >
             <PanelLeftOpen size={20} />
-          </Button>
+          </button>
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold truncate leading-snug tracking-tight">
               {activeConversation.title}
@@ -280,15 +280,14 @@ className="flex items-center justify-between px-4 md:px-6 border-b border-border
             </p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
+        <button
+          type="button"
           onClick={() => setSettingsOpen(true)}
           aria-label="Open settings"
-          className="-mr-1 text-muted-foreground"
+          className="-mr-1 grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted-bg transition-colors"
         >
           <Settings size={20} />
-        </Button>
+        </button>
       </header>
 
       {/* Messages */}

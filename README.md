@@ -1,11 +1,13 @@
 # TenshiLLM
 
-> Mobile-first AI chat client built with Tauri v2, React, and Bun. Connect to any OpenAI-compatible API, chat with reasoning models, execute MCP tools, and customize your experience with 9 beautiful themes.
+> Mobile-first AI chat client built with Tauri v2, React, and Bun. Connect to any OpenAI-compatible API, chat with reasoning models, execute MCP tools, and customize your experience with 6 curated themes and a Claude/ChatGPT-inspired minimal interface.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Tauri-v2-blue" alt="Tauri v2" />
-  <img src="https://img.shields.io/badge/React-18+-61dafb" alt="React 18+" />
+  <img src="https://img.shields.io/badge/React-19-61dafb" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-5.8-3178c6" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/HeroUI-v3-ffd700" alt="HeroUI v3" />
+  <img src="https://img.shields.io/badge/Tailwind-v4-38bdf8" alt="Tailwind v4" />
   <img src="https://img.shields.io/badge/Bun-1.3-fbf0cf" alt="Bun" />
   <img src="https://img.shields.io/badge/Rust-1.96-dea584" alt="Rust" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
@@ -41,18 +43,15 @@
 - **Toggle on/off**: Enable/disable web search per conversation
 - **Contextual results**: Search results are provided as context to the LLM
 
-### Themes (9 built-in)
-| Theme | Style |
-|-------|-------|
-| Light | Clean and bright |
-| Tokyo Night | Dark purple-blue |
-| Dracula | Classic dark |
-| Catppuccin Mocha | Soothing pastel dark |
-| Gruvbox Dark | Retro warm |
-| Nord | Arctic cool |
-| Solarized Dark | Precision dark |
-| One Dark | Atom-inspired |
-| Everforest | Nature-inspired |
+### Themes (6 curated)
+| Theme | Style | Type |
+|-------|-------|------|
+| Dracula | Official dark default | Dark |
+| Alucard | Official Dracula light | Light |
+| Tokyo Night | Calm purple-blue | Dark |
+| Catppuccin Mocha | Soothing pastel | Dark |
+| Nord | Arctic cool tones | Dark |
+| Gruvbox Dark | Retro warm | Dark |
 
 ### Data Management
 - **100% local storage**: All data stays on your device
@@ -96,8 +95,9 @@
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
 | Runtime | Tauri v2 | Cross-platform desktop/mobile framework |
-| Frontend | React 18 + TypeScript | UI components and state management |
-| Styling | Tailwind CSS v4 | Utility-first CSS with theme variables |
+| Frontend | React 19 + TypeScript | UI components and state management |
+| UI Library | HeroUI v3 | Accessible components built on React Aria + Tailwind v4 (no provider needed) |
+| Styling | Tailwind CSS v4 | Utility-first CSS with HSL theme variables |
 | State | Zustand | Lightweight state management |
 | Bundler | Vite | Fast development and build tool |
 | Package Manager | Bun | Fast JavaScript runtime and package manager |
@@ -183,23 +183,26 @@ bun run tauri ios build
 tenshillm/
 ├── src/                          # React frontend
 │   ├── main.tsx                  # Entry point
-│   ├── App.tsx                   # Root component
+│   ├── App.tsx                   # Root component, theme application
 │   ├── types/index.ts            # TypeScript type definitions
-│   ├── styles/globals.css        # Tailwind + 9 theme definitions
+│   ├── styles/globals.css        # Tailwind + HeroUI styles + 6 themes + token bridge
 │   ├── stores/                   # Zustand state management
 │   │   ├── themeStore.ts         # Theme state
 │   │   ├── settingsStore.ts      # Providers, MCP, skills, search config
 │   │   └── chatStore.ts          # Conversations and messages
 │   ├── lib/
-│   │   └── openai.ts             # OpenAI payload builder
+│   │   ├── openai.ts             # OpenAI payload builder + stream parser
+│   │   └── utils.ts              # Lightweight `cn()` className joiner
 │   └── components/
-│       ├── sidebar/Sidebar.tsx   # Conversation list sidebar
+│       ├── Overlay.tsx           # Custom Drawer (slide-over) + Modal (centered)
+│       ├── primitives.tsx        # Themed Toggle/TextInput/Select/Range/Checkbox/Buttons
+│       ├── sidebar/Sidebar.tsx   # Conversation list + navigation
 │       ├── chat/
-│       │   ├── ChatView.tsx      # Main chat interface
+│       │   ├── ChatView.tsx      # Main chat interface + streaming logic
 │       │   ├── MessageBubble.tsx # Message display with Markdown
 │       │   └── MessageInput.tsx  # Input with image upload
-│       ├── settings/SettingsPanel.tsx  # Full settings UI
-│       └── cleanup/CleanupPanel.tsx    # Data cleanup tools
+│       ├── settings/SettingsPanel.tsx  # Drawer + HeroUI Tabs (5 sections)
+│       └── cleanup/CleanupPanel.tsx    # Modal with stats + cleanup actions
 ├── src-tauri/                    # Rust backend
 │   ├── Cargo.toml                # Rust dependencies
 │   ├── tauri.conf.json           # Tauri configuration
@@ -209,7 +212,6 @@ tenshillm/
 │       └── lib.rs                # Tauri commands (API, MCP, search)
 ├── package.json                  # Frontend dependencies
 ├── vite.config.ts                # Vite configuration
-├── PLAN.md                       # Detailed project plan
 ├── AGENTS.md                     # Agent context documentation
 └── README.md                     # This file
 ```
@@ -386,6 +388,8 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 - [Tauri](https://tauri.app) - Cross-platform framework
 - [React](https://react.dev) - UI library
+- [HeroUI](https://www.heroui.com) - UI component library (React Aria + Tailwind v4)
 - [Tailwind CSS](https://tailwindcss.com) - CSS framework
 - [Zustand](https://zustand-demo.pmnd.rs) - State management
 - [Lucide](https://lucide.dev) - Icon library
+- [Sonner](https://sonner.emilkowal.ski) - Toast notifications
