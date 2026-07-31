@@ -5,9 +5,349 @@ import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import { PanelLeftOpen, Settings, Cpu } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import type { Message, Attachment } from '@/types';
+import type {
+  Attachment,
+  McpServer,
+  Message,
+  SearchConfig,
+  ToolCall,
+  ToolResult,
+} from '@/types';
 import { buildChatPayload, parseStreamChunk } from '@/lib/openai';
+import { callMcpTool, listMcpTools } from '@/lib/mcp';
 import { fetch } from '@tauri-apps/plugin-http';
+import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'sonner';
+
+interface StreamedCompletion {
+  content: string;
+  reasoning: string;
+  toolCalls: ToolCall[];
+}
+
+interface StreamUpdate {
+  displayContent: string;
+  toolCalls: ToolCall[];
+}
+
+function buildDisplayContent(content: string, reasoning: string): string {
+  if (!reasoning) return content;
+
+  return `<details><summary>Thinking</summary>\n\n${reasoning}\n\n</details>\n\n${content}`;
+}
+
+function isAbortError(error: unknown, signal: AbortSignal): boolean {
+  if (signal.aborted) return true;
+  return error instanceof Error && (error.name === 'AbortError' || error.message === 'Request cancelled');
+}
+
+async function readSseResponse(
+  response: Response,
+  signal: AbortSignal,
+  onChunk: (chunk: ReturnType<typeof parseStreamChunk>) => void
+): Promise<void> {
+  if (!response.body) {
+    throw new Error('The provider returned an empty response body');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let streamFinished = false;
+
+  const processLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed || !trimmed.startsWith('data:')) return;
+    if (trimmed.slice(5).trim() === '[DONE]') {
+      streamFinished = true;
+      return;
+    }
+
+    onChunk(parseStreamChunk(trimmed));
+  };
+
+  try {
+    while (!streamFinished) {
+      if (signal.aborted) throw new Error('Request cancelled');
+
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || '';
+      lines.forEach(processLine);
+    }
+
+    buffer += decoder.decode();
+    if (buffer) processLine(buffer);
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      // The HTTP plugin may already have cancelled the native response.
+    }
+    reader.releaseLock();
+  }
+}
+
+async function requestCompletion(
+  baseUrl: string,
+  apiKey: string,
+  payload: ReturnType<typeof buildChatPayload>,
+  signal: AbortSignal,
+  onUpdate: (update: StreamUpdate) => void
+): Promise<StreamedCompletion> {
+  const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(payload),
+    signal,
+    connectTimeout: 30000,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`API Error ${response.status}: ${errorText}`);
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.toLowerCase().includes('application/json')) {
+    const body = (await response.json()) as {
+      choices?: Array<{
+        message?: {
+          content?: string | null;
+          reasoning_content?: string | null;
+          tool_calls?: Array<{
+            id?: string;
+            function?: { name?: string; arguments?: string };
+          }>;
+        };
+      }>;
+    };
+    const message = body.choices?.[0]?.message;
+    const toolCalls = (message?.tool_calls || [])
+      .filter((toolCall) => toolCall.function?.name)
+      .map((toolCall, index) => ({
+        id: toolCall.id || `tool-call-${index}`,
+        name: toolCall.function?.name || '',
+        arguments: toolCall.function?.arguments || '{}',
+      }));
+    const content = message?.content || '';
+    const reasoning = message?.reasoning_content || '';
+    onUpdate({
+      displayContent: buildDisplayContent(content, reasoning),
+      toolCalls,
+    });
+    return { content, reasoning, toolCalls };
+  }
+
+  let content = '';
+  let reasoning = '';
+  const toolCalls = new Map<number, ToolCall>();
+
+  await readSseResponse(response, signal, (chunk) => {
+    const delta = chunk?.choices[0]?.delta;
+    if (!delta) return;
+
+    if (delta.content) content += delta.content;
+    if (delta.reasoning_content) reasoning += delta.reasoning_content;
+
+    for (const toolCallDelta of delta.tool_calls || []) {
+      const current = toolCalls.get(toolCallDelta.index) || {
+        id: toolCallDelta.id || `tool-call-${toolCallDelta.index}`,
+        name: '',
+        arguments: '',
+      };
+
+      if (toolCallDelta.id) current.id = toolCallDelta.id;
+      if (toolCallDelta.function?.name) current.name += toolCallDelta.function.name;
+      if (toolCallDelta.function?.arguments) {
+        current.arguments += toolCallDelta.function.arguments;
+      }
+      toolCalls.set(toolCallDelta.index, current);
+    }
+
+    onUpdate({
+      displayContent: buildDisplayContent(content, reasoning),
+      toolCalls: Array.from(toolCalls.values()),
+    });
+  });
+
+  return {
+    content,
+    reasoning,
+    toolCalls: Array.from(toolCalls.values()).filter((toolCall) => toolCall.name),
+  };
+}
+
+function stringifyToolResult(result: unknown): string {
+  if (typeof result === 'string') return result;
+
+  if (result && typeof result === 'object' && 'content' in result) {
+    const toolResult = result as {
+      content?: Array<{ type?: string; text?: string }>;
+      structuredContent?: unknown;
+    };
+    const text = (toolResult.content || [])
+      .map((item) => (item.type === 'text' && item.text ? item.text : JSON.stringify(item)))
+      .join('\n');
+
+    if (toolResult.structuredContent !== undefined) {
+      return `${text}${text ? '\n\n' : ''}${JSON.stringify(toolResult.structuredContent)}`;
+    }
+    if (text) return text;
+  }
+
+  try {
+    return JSON.stringify(result, null, 2) ?? String(result);
+  } catch {
+    return String(result);
+  }
+}
+
+function toolResultFailed(result: unknown): boolean {
+  return Boolean(
+    result &&
+      typeof result === 'object' &&
+      'isError' in result &&
+      (result as { isError?: boolean }).isError
+  );
+}
+
+type UpdateMcpServer = (id: string, updates: Partial<McpServer>) => void;
+
+async function prepareMcpServers(
+  servers: McpServer[],
+  updateMcpServer: UpdateMcpServer
+): Promise<McpServer[]> {
+  const enabledServers = servers.filter((server) => server.isEnabled);
+  const preparedServers: McpServer[] = [];
+
+  for (const server of enabledServers) {
+    if (server.connected) {
+      preparedServers.push(server);
+      continue;
+    }
+
+    try {
+      const result = await listMcpTools(server);
+      const connectedServer: McpServer = {
+        ...server,
+        connected: true,
+        tools: result.tools,
+        sessionId: result.sessionId,
+        protocolVersion: result.protocolVersion,
+      };
+      updateMcpServer(server.id, {
+        connected: true,
+        tools: result.tools,
+        sessionId: result.sessionId,
+        protocolVersion: result.protocolVersion,
+      });
+      preparedServers.push(connectedServer);
+    } catch (error) {
+      updateMcpServer(server.id, { connected: false });
+      console.error(`[TenshiLLM] MCP connection failed for ${server.name}:`, error);
+      toast.error(`MCP server unavailable: ${server.name}`);
+    }
+  }
+
+  return preparedServers;
+}
+
+async function executeToolCall(
+  toolCall: ToolCall,
+  serverById: Map<string, McpServer>,
+  toolOwners: Map<string, string>,
+  searchConfig: SearchConfig,
+  updateMcpServer: UpdateMcpServer
+): Promise<ToolResult> {
+  let argumentsValue: unknown;
+  try {
+    argumentsValue = JSON.parse(toolCall.arguments || '{}');
+  } catch {
+    return {
+      toolCallId: toolCall.id,
+      content: `Invalid JSON arguments for tool ${toolCall.name}: ${toolCall.arguments}`,
+      isError: true,
+    };
+  }
+
+  if (toolCall.name === 'web_search') {
+    try {
+      const query =
+        argumentsValue && typeof argumentsValue === 'object' && 'query' in argumentsValue
+          ? (argumentsValue as { query?: unknown }).query
+          : undefined;
+      if (typeof query !== 'string' || !query.trim()) {
+        throw new Error('web_search requires a non-empty query');
+      }
+
+      const result = await invoke<unknown>('web_search', {
+        provider: searchConfig.provider,
+        apiKey: searchConfig.apiKey,
+        query,
+        maxResults: searchConfig.maxResults,
+      });
+      return {
+        toolCallId: toolCall.id,
+        content: stringifyToolResult(result),
+        isError: false,
+      };
+    } catch (error) {
+      return {
+        toolCallId: toolCall.id,
+        content: `web_search failed: ${error instanceof Error ? error.message : String(error)}`,
+        isError: true,
+      };
+    }
+  }
+
+  const serverId = toolOwners.get(toolCall.name);
+  const server = serverId ? serverById.get(serverId) : undefined;
+  if (!server) {
+    return {
+      toolCallId: toolCall.id,
+      content: `No connected MCP server exposes the tool ${toolCall.name}`,
+      isError: true,
+    };
+  }
+
+  try {
+    const response = await callMcpTool(server, toolCall.name, argumentsValue);
+    const updatedServer: McpServer = {
+      ...server,
+      connected: true,
+      sessionId: response.sessionId,
+      protocolVersion: response.protocolVersion,
+    };
+    serverById.set(server.id, updatedServer);
+    updateMcpServer(server.id, {
+      connected: true,
+      sessionId: response.sessionId,
+      protocolVersion: response.protocolVersion,
+    });
+
+    const failed = toolResultFailed(response.result);
+    const content = stringifyToolResult(response.result);
+    return {
+      toolCallId: toolCall.id,
+      content: failed ? `[MCP tool error]\n${content}` : content,
+      isError: failed,
+    };
+  } catch (error) {
+    return {
+      toolCallId: toolCall.id,
+      content: `MCP tool ${toolCall.name} failed: ${error instanceof Error ? error.message : String(error)}`,
+      isError: true,
+    };
+  }
+}
 
 export function ChatView() {
   const {
@@ -22,11 +362,17 @@ export function ChatView() {
     addMessage,
     setIsStreaming,
     setStreamingContent,
-    updateLastAssistantMessage,
+    updateMessage,
     updateConversation,
   } = useChatStore();
 
-  const { providers, searchConfig, agentSkills, mcpServers } = useSettingsStore();
+  const {
+    providers,
+    searchConfig,
+    agentSkills,
+    mcpServers,
+    updateMcpServer,
+  } = useSettingsStore();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -73,36 +419,6 @@ export function ChatView() {
       systemPrompt += skillsContext;
     }
 
-    const enabledMcpServers = mcpServers.filter((s) => s.isEnabled && s.connected);
-    const mcpTools = enabledMcpServers.flatMap((s) => s.tools);
-
-    const allMessages = [...currentMessages, userMessage];
-    const payload = buildChatPayload(
-      allMessages,
-      model.modelId,
-      systemPrompt,
-      mcpTools,
-      model.maxOutputTokens
-    );
-
-    if (searchConfig.enabled && searchConfig.apiKey) {
-      payload.tools = payload.tools || [];
-      payload.tools.push({
-        type: 'function',
-        function: {
-          name: 'web_search',
-          description: 'Search the internet for current information',
-          parameters: {
-            type: 'object',
-            properties: {
-              query: { type: 'string', description: 'Search query' },
-            },
-            required: ['query'],
-          },
-        },
-      });
-    }
-
     const assistantMessage: Message = {
       id: nanoid(),
       conversationId: activeConversationId,
@@ -119,79 +435,134 @@ export function ChatView() {
     setIsStreaming(true);
     setStreamingContent('');
 
+    let activeAssistantId = assistantMessage.id;
     try {
       abortRef.current = new AbortController();
-      const url = `${provider.baseUrl}/chat/completions`;
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${provider.apiKey}`,
-      };
-      const body = JSON.stringify(payload);
+      const signal = abortRef.current.signal;
+      const preparedMcpServers = model.supportsTools
+        ? await prepareMcpServers(mcpServers, updateMcpServer)
+        : [];
+      const serverById = new Map(preparedMcpServers.map((server) => [server.id, server]));
+      const toolOwners = new Map<string, string>();
+      const mcpTools = model.supportsTools
+        ? preparedMcpServers.flatMap((server) =>
+            server.tools.filter((tool) => {
+              if (toolOwners.has(tool.name)) return false;
+              toolOwners.set(tool.name, server.id);
+              return true;
+            })
+          )
+        : [];
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body,
-        signal: abortRef.current.signal,
-        connectTimeout: 30000,
-      });
+      let conversationMessages: Message[] = [...currentMessages, userMessage];
+      const maxToolRounds = 8;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[TenshiLLM] API Error body:', errorText);
-        throw new Error(`API Error ${response.status}: ${errorText}`);
-      }
+      for (let round = 0; round < maxToolRounds; round += 1) {
+        if (signal.aborted) throw new Error('Request cancelled');
 
-      const responseText = await response.text();
-      const lines = responseText.split('\n');
-      let fullContent = '';
-      let fullReasoning = '';
+        const payload = buildChatPayload(
+          conversationMessages,
+          model.modelId,
+          systemPrompt,
+          mcpTools,
+          model.maxOutputTokens
+        );
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith('data: ')) continue;
-
-        const chunk = parseStreamChunk(trimmed);
-        if (!chunk) continue;
-
-        const delta = chunk.choices[0]?.delta;
-        if (!delta) continue;
-
-        if (delta.reasoning_content) {
-          fullReasoning += delta.reasoning_content;
-          const displayContent = fullReasoning
-            ? `<details><summary>Thinking</summary>\n\n${fullReasoning}\n\n</details>\n\n${fullContent}`
-            : fullContent;
-          setStreamingContent(fullContent || displayContent);
-          updateLastAssistantMessage(activeConversationId, fullContent || displayContent);
+        if (model.supportsTools && searchConfig.enabled && searchConfig.apiKey) {
+          payload.tools = payload.tools || [];
+          payload.tools.push({
+            type: 'function',
+            function: {
+              name: 'web_search',
+              description: 'Search the internet for current information',
+              parameters: {
+                type: 'object',
+                properties: {
+                  query: { type: 'string', description: 'Search query' },
+                },
+                required: ['query'],
+              },
+            },
+          });
         }
 
-        if (delta.content) {
-          fullContent += delta.content;
-          setStreamingContent(fullContent);
-          updateLastAssistantMessage(activeConversationId, fullContent);
-        }
-
-        if (delta.tool_calls) {
-          for (const tc of delta.tool_calls) {
-            if (tc.function?.name) {
-              fullContent += `\n\n[Calling tool: ${tc.function.name}]`;
-              setStreamingContent(fullContent);
-              updateLastAssistantMessage(activeConversationId, fullContent);
-            }
+        const completion = await requestCompletion(
+          provider.baseUrl,
+          provider.apiKey,
+          payload,
+          signal,
+          ({ displayContent, toolCalls }) => {
+            setStreamingContent(displayContent);
+            updateMessage(activeConversationId, activeAssistantId, {
+              content: displayContent,
+              toolCalls,
+            });
           }
-        }
-      }
+        );
 
-      if (fullReasoning && !fullContent) {
-        setStreamingContent(fullReasoning);
-        updateLastAssistantMessage(activeConversationId, fullReasoning);
+        const assistantForHistory: Message = {
+          ...assistantMessage,
+          id: activeAssistantId,
+          content: completion.content,
+          toolCalls: completion.toolCalls,
+          timestamp: Date.now(),
+        };
+        conversationMessages = [...conversationMessages, assistantForHistory];
+        updateMessage(activeConversationId, activeAssistantId, {
+          content: buildDisplayContent(completion.content, completion.reasoning),
+          toolCalls: completion.toolCalls,
+        });
+
+        if (completion.toolCalls.length === 0) break;
+
+        for (const toolCall of completion.toolCalls) {
+          if (signal.aborted) throw new Error('Request cancelled');
+
+          const toolResult = await executeToolCall(
+            toolCall,
+            serverById,
+            toolOwners,
+            searchConfig,
+            updateMcpServer
+          );
+          const toolMessage: Message = {
+            id: nanoid(),
+            conversationId: activeConversationId,
+            role: 'tool',
+            content: toolResult.content,
+            attachments: [],
+            toolCalls: [],
+            toolResults: [toolResult],
+            timestamp: Date.now(),
+            tokenUsage: null,
+          };
+
+          addMessage(activeConversationId, toolMessage);
+          conversationMessages = [...conversationMessages, toolMessage];
+        }
+
+        if (round === maxToolRounds - 1) {
+          throw new Error('The model exceeded the maximum number of tool call rounds');
+        }
+        if (signal.aborted) throw new Error('Request cancelled');
+
+        const nextAssistantMessage: Message = {
+          ...assistantMessage,
+          id: nanoid(),
+          content: '',
+          toolCalls: [],
+          timestamp: Date.now(),
+        };
+        activeAssistantId = nextAssistantMessage.id;
+        addMessage(activeConversationId, nextAssistantMessage);
+        setStreamingContent('');
       }
     } catch (err: unknown) {
-      console.error('[TenshiLLM] Catch error:', err);
-      if (err instanceof Error && err.name === 'AbortError') return;
+      const signal = abortRef.current?.signal;
+      if (signal && isAbortError(err, signal)) return;
       const errorMsg = err instanceof Error ? err.message : `Unknown error: ${String(err)}`;
-      updateLastAssistantMessage(activeConversationId, `Error: ${errorMsg}`);
+      console.error('[TenshiLLM] Request error:', err);
+      updateMessage(activeConversationId, activeAssistantId, { content: `Error: ${errorMsg}` });
     } finally {
       setIsStreaming(false);
       setStreamingContent('');

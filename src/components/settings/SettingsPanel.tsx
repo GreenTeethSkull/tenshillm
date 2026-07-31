@@ -22,6 +22,7 @@ import { nanoid } from 'nanoid';
 import { toast } from 'sonner';
 import { Tabs, ScrollShadow, Separator } from '@heroui/react';
 import { Drawer } from '@/components/Overlay';
+import { listMcpTools } from '@/lib/mcp';
 import {
   Toggle,
   TextInput,
@@ -90,6 +91,7 @@ export function SettingsPanel() {
   const [mcpName, setMcpName] = useState('');
   const [mcpUrl, setMcpUrl] = useState('');
   const [mcpHeaders, setMcpHeaders] = useState('');
+  const [connectingMcpId, setConnectingMcpId] = useState<string | null>(null);
 
   // Skill form
   const [showSkillForm, setShowSkillForm] = useState(false);
@@ -164,6 +166,51 @@ export function SettingsPanel() {
     setShowMcpForm(false);
     saveSettings();
     toast.success('MCP server added');
+  };
+
+  const handleConnectMcp = async (server: McpServer) => {
+    setConnectingMcpId(server.id);
+    try {
+      const result = await listMcpTools(server);
+      updateMcpServer(server.id, {
+        connected: true,
+        tools: result.tools,
+        sessionId: result.sessionId,
+        protocolVersion: result.protocolVersion,
+      });
+      saveSettings();
+      toast.success(`${server.name} connected (${result.tools.length} tools)`);
+    } catch (error) {
+      updateMcpServer(server.id, {
+        connected: false,
+        tools: [],
+        sessionId: undefined,
+        protocolVersion: undefined,
+      });
+      saveSettings();
+      toast.error(
+        `${server.name} connection failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    } finally {
+      setConnectingMcpId(null);
+    }
+  };
+
+  const handleToggleMcp = async (server: McpServer, enabled: boolean) => {
+    if (!enabled) {
+      updateMcpServer(server.id, {
+        isEnabled: false,
+        connected: false,
+        tools: [],
+        sessionId: undefined,
+        protocolVersion: undefined,
+      });
+      saveSettings();
+      return;
+    }
+
+    updateMcpServer(server.id, { isEnabled: true });
+    await handleConnectMcp({ ...server, isEnabled: true });
   };
 
   const handleAddSkill = () => {
@@ -598,12 +645,21 @@ export function SettingsPanel() {
                     <div className="flex items-center gap-2 shrink-0">
                       <Toggle
                         checked={srv.isEnabled}
-                        onChange={(v) => {
-                          updateMcpServer(srv.id, { isEnabled: v });
-                          saveSettings();
-                        }}
+                        onChange={(v) => void handleToggleMcp(srv, v)}
                         label={`Toggle ${srv.name}`}
                       />
+                      <GhostButton
+                        onClick={() => void handleConnectMcp(srv)}
+                        disabled={!srv.isEnabled || connectingMcpId === srv.id}
+                        className="h-7 px-2 text-xs"
+                      >
+                        <Plug size={13} />
+                        {connectingMcpId === srv.id
+                          ? 'Connecting'
+                          : srv.connected
+                            ? 'Reconnect'
+                            : 'Connect'}
+                      </GhostButton>
                       <IconGhostButton
                         onClick={() => {
                           removeMcpServer(srv.id);

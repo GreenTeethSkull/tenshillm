@@ -105,6 +105,8 @@ export interface McpServer {
   isEnabled: boolean;
   tools: McpTool[];
   connected: boolean;
+  sessionId?: string;
+  protocolVersion?: string;
 }
 
 export interface McpTool {

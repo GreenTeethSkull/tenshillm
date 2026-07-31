@@ -111,8 +111,9 @@ export interface StreamChunk {
 }
 
 export function parseStreamChunk(line: string): StreamChunk | null {
-  if (!line.startsWith('data: ')) return null;
-  const data = line.slice(6).trim();
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('data:')) return null;
+  const data = trimmed.slice(5).trim();
   if (data === '[DONE]') return null;
   try {
     return JSON.parse(data);

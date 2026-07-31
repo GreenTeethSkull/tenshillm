@@ -21,7 +21,7 @@ interface ChatState {
   setActiveConversation: (id: string | null) => void;
   setMessages: (conversationId: string, messages: Message[]) => void;
   addMessage: (conversationId: string, message: Message) => void;
-  updateLastAssistantMessage: (conversationId: string, content: string) => void;
+  updateMessage: (conversationId: string, messageId: string, updates: Partial<Message>) => void;
   setIsStreaming: (streaming: boolean) => void;
   setStreamingContent: (content: string) => void;
   setSidebarOpen: (open: boolean) => void;
@@ -82,17 +82,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         [conversationId]: [...(s.messages[conversationId] || []), message],
       },
     })),
-  updateLastAssistantMessage: (conversationId, content) =>
-    set((s) => {
-      const msgs = s.messages[conversationId] || [];
-      const lastIdx = msgs.length - 1;
-      if (lastIdx >= 0 && msgs[lastIdx].role === 'assistant') {
-        const updated = [...msgs];
-        updated[lastIdx] = { ...updated[lastIdx], content };
-        return { messages: { ...s.messages, [conversationId]: updated } };
-      }
-      return s;
-    }),
+  updateMessage: (conversationId, messageId, updates) =>
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [conversationId]: (s.messages[conversationId] || []).map((message) =>
+          message.id === messageId ? { ...message, ...updates } : message
+        ),
+      },
+    })),
   setIsStreaming: (streaming) => set({ isStreaming: streaming }),
   setStreamingContent: (content) => set({ streamingContent: content }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
