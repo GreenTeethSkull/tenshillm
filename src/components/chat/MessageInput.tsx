@@ -106,7 +106,7 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
                   type="button"
                   onClick={() => removeAttachment(att.id)}
                   aria-label={`Remove attachment ${att.name}`}
-                  className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80 active:scale-90 transition-all duration-150"
+                  className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80 active:scale-90 transition-[background-color,opacity,transform] duration-150"
                 >
                   <X size={12} aria-hidden="true" />
                 </button>
@@ -122,7 +122,10 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
               <input
                 ref={fileInputRef}
                 type="file"
+                id="chat-image-upload"
+                name="chat-image-upload"
                 accept="image/*"
+                capture="environment"
                 multiple
                 className="hidden"
                 onChange={handleFileSelect}
@@ -143,6 +146,8 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
           <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
+              id="chat-message"
+              name="message"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onInput={handleInput}
@@ -154,7 +159,7 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
                 'w-full resize-none rounded-2xl border border-input bg-muted-bg px-4 py-3.5',
                 'text-[15px] text-foreground placeholder:text-muted-foreground',
                 'focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring',
-                'transition-all duration-150 leading-relaxed text-pretty min-h-[48px]'
+                'transition-[background-color,border-color,box-shadow,opacity,transform] duration-150 leading-relaxed text-pretty min-h-[48px]'
               )}
               style={{ maxHeight: '200px' }}
             />
@@ -166,7 +171,7 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
               type="button"
               onClick={onStop}
               aria-label="Stop generation"
-              className="shrink-0 size-11 grid place-items-center rounded-full bg-destructive text-destructive-foreground shadow-sm hover:opacity-90 active:scale-95 transition-all"
+              className="shrink-0 size-11 grid place-items-center rounded-full bg-destructive text-destructive-foreground shadow-sm hover:opacity-90 active:scale-95 transition-[background-color,border-color,color,opacity,box-shadow,transform]"
             >
               <Square size={18} className="fill-current" aria-hidden="true" />
             </button>
@@ -177,7 +182,7 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
               disabled={!canSend}
               aria-label="Send message"
               className={cn(
-                'shrink-0 size-11 grid place-items-center rounded-full shadow-sm transition-all',
+                'shrink-0 size-11 grid place-items-center rounded-full shadow-sm transition-[background-color,border-color,color,opacity,box-shadow,transform]',
                 canSend
                   ? 'bg-primary text-primary-foreground hover:opacity-90 active:scale-95'
                   : 'bg-muted-bg text-muted-foreground cursor-not-allowed opacity-50'
@@ -190,11 +195,11 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
 
         <p className="text-[11px] text-muted-foreground text-center mt-2.5">
           Press{' '}
-          <kbd className="px-1 py-0.5 rounded bg-muted-bg border border-border text-[10px] font-mono">
+            <kbd className="px-1 py-0.5 rounded bg-muted-bg border border-border text-[10px] font-mono text-foreground/80">
             Enter
           </kbd>{' '}
           to send ·{' '}
-          <kbd className="px-1 py-0.5 rounded bg-muted-bg border border-border text-[10px] font-mono">
+            <kbd className="px-1 py-0.5 rounded bg-muted-bg border border-border text-[10px] font-mono text-foreground/80">
             Shift+Enter
           </kbd>{' '}
           for new line

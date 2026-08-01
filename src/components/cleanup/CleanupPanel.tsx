@@ -9,11 +9,16 @@ import {
   FileText,
   Database,
   X,
+  Download,
 } from 'lucide-react';
 import { ScrollShadow } from '@heroui/react';
 import { Modal } from '@/components/Overlay';
 import { GhostButton, IconGhostButton } from '@/components/primitives';
 import { cn } from '@/lib/utils';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { toast } from 'sonner';
+import { describeRuntimeError, isTauriRuntime } from '@/lib/runtime';
 
 export function CleanupPanel() {
   const {
@@ -48,6 +53,44 @@ export function CleanupPanel() {
       setConfirmAction(null);
     } else {
       setConfirmAction(action);
+    }
+  };
+
+  const handleExport = async () => {
+    const backup = JSON.stringify(
+      {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        conversations,
+        messages,
+      },
+      null,
+      2
+    );
+
+    try {
+      if (!isTauriRuntime()) {
+        const blob = new Blob([backup], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `tenshillm-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        toast.success('Conversations exported');
+        return;
+      }
+
+      const filePath = await save({
+        defaultPath: `tenshillm-backup-${new Date().toISOString().slice(0, 10)}.json`,
+        filters: [{ name: 'JSON backup', extensions: ['json'] }],
+      });
+      if (!filePath) return;
+
+      await writeTextFile(filePath, backup);
+      toast.success('Conversations exported');
+    } catch (error) {
+      toast.error(`Export failed: ${describeRuntimeError(error)}`);
     }
   };
 
@@ -152,13 +195,21 @@ export function CleanupPanel() {
           <div className="space-y-3">
             <h3 className="text-sm font-semibold">Actions</h3>
 
+            <GhostButton
+              onClick={() => void handleExport()}
+              className="w-full justify-start h-auto p-4 rounded-xl border border-border bg-card hover:bg-muted-bg"
+            >
+              <Download className="size-4" aria-hidden="true" />
+              <span className="text-sm font-medium">Export conversations</span>
+            </GhostButton>
+
             <button
               type="button"
               onClick={() => handleConfirm('empty-trash')}
               disabled={archived.length === 0}
               aria-label="Empty trash"
               className={cn(
-                'w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all duration-150 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed',
+                'w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed',
                 confirmAction === 'empty-trash'
                   ? 'border-destructive bg-destructive/10 ring-2 ring-destructive/30'
                   : 'border-border bg-card hover:border-destructive/50 hover:bg-muted-bg'
@@ -182,7 +233,7 @@ export function CleanupPanel() {
               onClick={() => handleConfirm('clear-cache')}
               aria-label="Clear cache"
               className={cn(
-                'w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]',
+                'w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:scale-[0.98]',
                 confirmAction === 'clear-cache'
                   ? 'border-warning bg-warning/10 ring-2 ring-warning/30'
                   : 'border-border bg-card hover:border-warning/50 hover:bg-muted-bg'
@@ -206,7 +257,7 @@ export function CleanupPanel() {
               onClick={() => handleConfirm('delete-all')}
               aria-label="Delete everything"
               className={cn(
-                'w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]',
+                'w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:scale-[0.98]',
                 confirmAction === 'delete-all'
                   ? 'border-destructive bg-destructive/10 ring-2 ring-destructive/30'
                   : 'border-border bg-card hover:border-destructive/50 hover:bg-muted-bg'

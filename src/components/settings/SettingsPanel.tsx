@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { Tabs, ScrollShadow, Separator } from '@heroui/react';
 import { Drawer } from '@/components/Overlay';
 import { listMcpTools } from '@/lib/mcp';
+import { describeRuntimeError, isTauriRuntime } from '@/lib/runtime';
 import {
   Toggle,
   TextInput,
@@ -169,6 +170,11 @@ export function SettingsPanel() {
   };
 
   const handleConnectMcp = async (server: McpServer) => {
+    if (!isTauriRuntime()) {
+      toast.error('MCP connections require the Tauri desktop or mobile runtime.');
+      return;
+    }
+
     setConnectingMcpId(server.id);
     try {
       const result = await listMcpTools(server);
@@ -189,7 +195,7 @@ export function SettingsPanel() {
       });
       saveSettings();
       toast.error(
-        `${server.name} connection failed: ${error instanceof Error ? error.message : String(error)}`
+        `${server.name} connection failed: ${describeRuntimeError(error)}`
       );
     } finally {
       setConnectingMcpId(null);
@@ -270,19 +276,20 @@ export function SettingsPanel() {
       >
         <div className="px-6 pt-4 pb-3 border-b border-border">
           <Tabs.ListContainer>
-            <Tabs.List className="flex gap-1 overflow-x-auto">
+            <Tabs.List className="flex gap-1 overflow-x-hidden px-2 sm:overflow-x-auto sm:px-0">
               {tabs.map((t) => (
                 <Tabs.Tab
                   key={t.id}
                   id={t.id}
+                  aria-label={t.label}
                   className={cn(
-                    'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium transition-colors cursor-pointer',
+                    'group inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium transition-colors cursor-pointer',
                     'data-[selected]:bg-primary data-[selected]:text-primary-foreground',
-                    'text-muted-foreground hover:bg-muted-bg hover:text-foreground'
+                    'text-foreground/80 hover:bg-muted-bg hover:text-foreground'
                   )}
                 >
                   <t.icon size={15} aria-hidden="true" />
-                  {t.label}
+                  <span className="hidden sm:inline group-data-[selected]:inline">{t.label}</span>
                 </Tabs.Tab>
               ))}
             </Tabs.List>
@@ -293,24 +300,35 @@ export function SettingsPanel() {
           <div className="px-6 py-6">
             {/* ===== Providers ===== */}
             <Tabs.Panel id="providers" className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold">API Providers</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Add OpenAI-compatible endpoints and their models
                   </p>
                 </div>
-                <PrimaryButton onClick={() => setShowProviderForm(true)}>
+                <PrimaryButton
+                  onClick={() => setShowProviderForm(true)}
+                  className="self-start shrink-0"
+                >
                   <Plus size={15} />
                   Add Provider
                 </PrimaryButton>
               </div>
 
               {showProviderForm && (
-                <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <form
+                  className="rounded-xl border border-border bg-card p-4 space-y-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    handleAddProvider();
+                  }}
+                >
                   <Field label="Provider name" htmlFor="prov-name">
                     <TextInput
                       id="prov-name"
+                      name="provider-name"
+                      autoComplete="off"
                       value={providerName}
                       onChange={setProviderName}
                       placeholder="e.g. OpenRouter"
@@ -319,6 +337,8 @@ export function SettingsPanel() {
                   <Field label="Base URL" htmlFor="prov-url">
                     <TextInput
                       id="prov-url"
+                      name="provider-url"
+                      autoComplete="url"
                       value={providerUrl}
                       onChange={setProviderUrl}
                       placeholder="https://openrouter.ai/api/v1"
@@ -328,6 +348,8 @@ export function SettingsPanel() {
                     <div className="relative">
                       <TextInput
                         id="prov-key"
+                        name="provider-key"
+                        autoComplete="off"
                         type={showKey ? 'text' : 'password'}
                         value={providerKey}
                         onChange={setProviderKey}
@@ -345,10 +367,10 @@ export function SettingsPanel() {
                     </div>
                   </Field>
                   <div className="flex gap-2 pt-1">
-                    <PrimaryButton onClick={handleAddProvider}>Save</PrimaryButton>
+                    <PrimaryButton type="submit">Save</PrimaryButton>
                     <GhostButton onClick={() => setShowProviderForm(false)}>Cancel</GhostButton>
                   </div>
-                </div>
+                </form>
               )}
 
               {providers.length === 0 && !showProviderForm && (
@@ -538,7 +560,7 @@ export function SettingsPanel() {
                       saveSettings();
                     }}
                     className={cn(
-                      'flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all duration-150 active:scale-[0.98]',
+                       'flex items-center gap-3.5 p-4 rounded-xl border text-left transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:scale-[0.98]',
                       theme === t.id
                         ? 'border-primary ring-2 ring-primary/30 bg-primary/5'
                         : 'border-border hover:border-primary/40 bg-card hover:bg-muted-bg'
@@ -572,14 +594,14 @@ export function SettingsPanel() {
 
             {/* ===== MCP ===== */}
             <Tabs.Panel id="mcp" className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold">MCP Servers (Remote)</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Streamable HTTP transport — mobile compatible
                   </p>
                 </div>
-                <PrimaryButton onClick={() => setShowMcpForm(true)}>
+                <PrimaryButton onClick={() => setShowMcpForm(true)} className="self-start shrink-0">
                   <Plus size={15} />
                   Add
                 </PrimaryButton>
@@ -769,14 +791,14 @@ export function SettingsPanel() {
 
             {/* ===== Skills ===== */}
             <Tabs.Panel id="skills" className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold">Agent Skills</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Markdown content injected into the system prompt
                   </p>
                 </div>
-                <PrimaryButton onClick={() => setShowSkillForm(true)}>
+                <PrimaryButton onClick={() => setShowSkillForm(true)} className="self-start shrink-0">
                   <Plus size={15} />
                   Add
                 </PrimaryButton>

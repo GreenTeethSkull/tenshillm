@@ -22,6 +22,8 @@ export default function App() {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
     root.classList.toggle('dark', THEMES.find((t) => t.id === theme)?.isDark ?? true);
+    const themeColor = getComputedStyle(root).getPropertyValue('--background').trim();
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor);
   }, [theme]);
 
   useEffect(() => {
@@ -30,8 +32,14 @@ export default function App() {
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-background text-foreground">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+      >
+        Skip to main content
+      </a>
       <Sidebar />
-      <main className="flex-1 flex flex-col min-w-0 min-h-0">
+      <main id="main-content" className="flex-1 flex flex-col min-w-0 min-h-0">
         <ChatView />
       </main>
       {settingsOpen && <SettingsPanel />}

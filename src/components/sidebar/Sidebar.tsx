@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useChatStore } from '@/stores/chatStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { ScrollShadow, Tooltip } from '@heroui/react';
+import { ScrollShadow } from '@heroui/react';
 import { cn } from '@/lib/utils';
 
 export function Sidebar() {
@@ -93,7 +93,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={handleNewChat}
-            className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:opacity-90 active:scale-[0.98] transition-all"
+            className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:opacity-90 active:scale-[0.98] transition-[background-color,border-color,color,opacity,box-shadow,transform]"
           >
             <Plus size={16} aria-hidden="true" />
             New Chat
@@ -155,70 +155,49 @@ export function Sidebar() {
                   const isActive = activeConversationId === conv.id;
                   return (
                     <li key={conv.id}>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          setActiveConversation(conv.id);
-                          if (window.innerWidth < 1024) setSidebarOpen(false);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => {
                             setActiveConversation(conv.id);
                             if (window.innerWidth < 1024) setSidebarOpen(false);
-                          }
-                        }}
-                        aria-current={isActive ? 'true' : undefined}
-                        className={cn(
-                          'group relative w-full flex items-center gap-2.5 pl-4 pr-2 py-2.5 rounded-lg cursor-pointer',
-                          'transition-colors duration-150',
-                          isActive
-                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                            : 'hover:bg-sidebar-accent/60 text-sidebar-foreground/80'
-                        )}
-                      >
-                        {isActive && (
-                          <span
-                            className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-full bg-primary"
+                          }}
+                          aria-current={isActive ? 'page' : undefined}
+                          className={cn(
+                            'group w-full flex items-center gap-2.5 pl-4 pr-10 py-2.5 rounded-lg cursor-pointer text-left',
+                            'transition-colors duration-150',
+                            isActive
+                              ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                              : 'hover:bg-sidebar-accent/60 text-sidebar-foreground/80'
+                          )}
+                        >
+                          {isActive && (
+                            <span
+                              className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-full bg-primary"
+                              aria-hidden="true"
+                            />
+                          )}
+                          <MessageSquare
+                            size={15}
+                            className={cn(
+                              'shrink-0',
+                              isActive ? 'text-primary' : 'text-muted-foreground'
+                            )}
                             aria-hidden="true"
                           />
-                        )}
-                        <MessageSquare
-                          size={15}
-                          className={cn(
-                            'shrink-0',
-                            isActive ? 'text-primary' : 'text-muted-foreground'
-                          )}
-                          aria-hidden="true"
-                        />
-                        <span className="flex-1 text-sm truncate leading-snug">
-                          {conv.title}
-                        </span>
-                        <Tooltip>
-                          <Tooltip.Trigger>
-                            <span
-                              role="button"
-                              tabIndex={-1}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                archiveConversation(conv.id);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  archiveConversation(conv.id);
-                                }
-                              }}
-                              aria-label={`Archive conversation ${conv.title}`}
-                              className="grid size-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background/60 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all duration-150 shrink-0"
-                            >
-                              <Archive size={14} aria-hidden="true" />
-                            </span>
-                          </Tooltip.Trigger>
-                          <Tooltip.Content>Archive</Tooltip.Content>
-                        </Tooltip>
+                          <span className="min-w-0 flex-1 text-sm truncate leading-snug">
+                            {conv.title}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => archiveConversation(conv.id)}
+                          aria-label={`Archive conversation ${conv.title}`}
+                          title="Archive conversation"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 grid size-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background/60 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150"
+                        >
+                          <Archive size={14} aria-hidden="true" />
+                        </button>
                       </div>
                     </li>
                   );

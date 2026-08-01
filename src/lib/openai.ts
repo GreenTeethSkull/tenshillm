@@ -121,3 +121,54 @@ export function parseStreamChunk(line: string): StreamChunk | null {
     return null;
   }
 }
+
+export async function readOpenAiStream(
+  response: Response,
+  signal: AbortSignal,
+  onChunk: (chunk: StreamChunk) => void
+): Promise<void> {
+  if (!response.body) {
+    throw new Error('The provider returned an empty response body');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let streamFinished = false;
+
+  const processLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed || !trimmed.startsWith('data:')) return;
+    if (trimmed.slice(5).trim() === '[DONE]') {
+      streamFinished = true;
+      return;
+    }
+
+    const chunk = parseStreamChunk(trimmed);
+    if (chunk) onChunk(chunk);
+  };
+
+  try {
+    while (!streamFinished) {
+      if (signal.aborted) throw new Error('Request cancelled');
+
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || '';
+      lines.forEach(processLine);
+    }
+
+    buffer += decoder.decode();
+    if (buffer) processLine(buffer);
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      // The HTTP plugin may already have cancelled the native response.
+    }
+    reader.releaseLock();
+  }
+}

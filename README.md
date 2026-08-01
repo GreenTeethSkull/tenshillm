@@ -177,6 +177,28 @@ bun run tauri ios build
 
 ---
 
+## Quality Checks
+
+```bash
+# Frontend tests
+bun run test
+
+# Frontend coverage
+bun run test:coverage
+
+# Frontend lint
+bun run lint
+
+# Rust lint and tests
+bun run lint:rust
+bun run test:rust
+
+# Full validation: lint, tests and production build
+bun run check
+```
+
+---
+
 ## Project Structure
 
 ```

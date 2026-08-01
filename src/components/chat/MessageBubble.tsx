@@ -2,8 +2,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, Wrench, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
-import { Tooltip } from '@heroui/react';
 import type { Message } from '@/types';
+import { cn } from '@/lib/utils';
 
 interface Props {
   message: Message;
@@ -14,6 +14,7 @@ export function MessageBubble({ message, isStreaming }: Props) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
+  const isError = message.role === 'assistant' && message.content.startsWith('Error:');
 
   const handleCopy = async () => {
     try {
@@ -94,23 +95,19 @@ export function MessageBubble({ message, isStreaming }: Props) {
         <div className="flex items-center gap-2 mb-2">
           <span className="text-sm font-semibold">Assistant</span>
           {!isStreaming && message.content && (
-            <Tooltip>
-              <Tooltip.Trigger>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  aria-label={copied ? 'Copied to clipboard' : 'Copy message'}
-                  className="grid size-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-bg opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all duration-150"
-                >
-                  {copied ? (
-                    <Check size={13} aria-hidden="true" />
-                  ) : (
-                    <Copy size={13} aria-hidden="true" />
-                  )}
-                </button>
-              </Tooltip.Trigger>
-              <Tooltip.Content>{copied ? 'Copied' : 'Copy'}</Tooltip.Content>
-            </Tooltip>
+            <button
+              type="button"
+              onClick={handleCopy}
+              aria-label={copied ? 'Copied to clipboard' : 'Copy message'}
+              title={copied ? 'Copied' : 'Copy message'}
+              className="grid size-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-bg opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150"
+            >
+              {copied ? (
+                <Check size={13} aria-hidden="true" />
+              ) : (
+                <Copy size={13} aria-hidden="true" />
+              )}
+            </button>
           )}
         </div>
 
@@ -134,7 +131,13 @@ export function MessageBubble({ message, isStreaming }: Props) {
             <span />
           </div>
         ) : (
-          <div className="markdown-body">
+          <div
+            className={cn(
+              'markdown-body',
+              isError &&
+                'rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive'
+            )}
+          >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{

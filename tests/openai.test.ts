@@ -1,0 +1,166 @@
+import { describe, expect, test } from 'bun:test';
+import {
+  buildChatPayload,
+  parseStreamChunk,
+  readOpenAiStream,
+} from '../src/lib/openai';
+import type { McpTool, Message } from '../src/types';
+
+function message(overrides: Partial<Message> = {}): Message {
+  return {
+    id: 'message-1',
+    conversationId: 'conversation-1',
+    role: 'user',
+    content: 'Hello',
+    attachments: [],
+    toolCalls: [],
+    toolResults: [],
+    timestamp: 1,
+    tokenUsage: null,
+    ...overrides,
+  };
+}
+
+const echoTool: McpTool = {
+  name: 'echo',
+  title: 'Echo',
+  description: 'Echoes text back to the caller',
+  inputSchema: {
+    type: 'object',
+    properties: { text: { type: 'string' } },
+    required: ['text'],
+  },
+};
+
+describe('OpenAI-compatible payloads', () => {
+  test('keeps tool-call and tool-result messages in protocol order', () => {
+    const payload = buildChatPayload(
+      [
+        message(),
+        message({
+          id: 'assistant-1',
+          role: 'assistant',
+          content: '',
+          toolCalls: [{ id: 'call-1', name: 'echo', arguments: '{"text":"Hi"}' }],
+        }),
+        message({
+          id: 'tool-1',
+          role: 'tool',
+          content: 'Hi',
+          toolResults: [{ toolCallId: 'call-1', content: 'Hi', isError: false }],
+        }),
+      ],
+      'demo-model',
+      'You are helpful.',
+      [echoTool],
+      2048
+    );
+
+    expect(payload.stream).toBe(true);
+    expect(payload.max_tokens).toBe(2048);
+    expect(payload.messages.map((item) => item.role)).toEqual([
+      'system',
+      'user',
+      'assistant',
+      'tool',
+    ]);
+    expect(payload.messages[2]).toEqual({
+      role: 'assistant',
+      content: '',
+      tool_calls: [
+        {
+          id: 'call-1',
+          type: 'function',
+          function: { name: 'echo', arguments: '{"text":"Hi"}' },
+        },
+      ],
+    });
+    expect(payload.messages[3]).toEqual({
+      role: 'tool',
+      content: 'Hi',
+      tool_call_id: 'call-1',
+    });
+    expect(payload.tools?.[0].function.parameters).toEqual(echoTool.inputSchema);
+  });
+
+  test('encodes image attachments as multimodal content', () => {
+    const payload = buildChatPayload(
+      [
+        message({
+          attachments: [
+            {
+              id: 'image-1',
+              name: 'pixel.png',
+              mimeType: 'image/png',
+              size: 3,
+              base64Data: 'YWJj',
+            },
+          ],
+        }),
+      ],
+      'vision-model',
+      '',
+      []
+    );
+
+    expect(payload.messages[0].content).toEqual([
+      { type: 'text', text: 'Hello' },
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/png;base64,YWJj', detail: 'auto' },
+      },
+    ]);
+  });
+});
+
+describe('OpenAI stream parsing', () => {
+  test('accepts data events without a space after the colon', () => {
+    const chunk = parseStreamChunk('data:{"choices":[]}');
+
+    expect(chunk).toEqual({ choices: [] });
+  });
+
+  test('reassembles SSE events split across network chunks', async () => {
+    const encoder = new TextEncoder();
+    const firstEvent = `data: ${JSON.stringify({
+      choices: [{ delta: { content: 'Hel' }, finish_reason: null }],
+    })}\n`;
+    const secondEvent = `data: ${JSON.stringify({
+      choices: [{ delta: { content: 'lo' }, finish_reason: null }],
+    })}\n`;
+    const streamText = `${firstEvent}\n${secondEvent}\ndata: [DONE]\n`;
+    const splitAt = streamText.indexOf('finish_reason') + 5;
+    const networkChunks = [streamText.slice(0, splitAt), streamText.slice(splitAt)];
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          networkChunks.forEach((chunk) => controller.enqueue(encoder.encode(chunk)));
+          controller.close();
+        },
+      }),
+      { headers: { 'content-type': 'text/event-stream' } }
+    );
+    const received: string[] = [];
+
+    await readOpenAiStream(response, new AbortController().signal, (chunk) => {
+      const content = chunk.choices[0]?.delta.content;
+      if (content) received.push(content);
+    });
+
+    expect(received).toEqual(['Hel', 'lo']);
+  });
+
+  test('stops when the provider sends the done event', async () => {
+    const response = new Response(
+      `data: [DONE]\n\ndata: not-json\n`,
+      { headers: { 'content-type': 'text/event-stream' } }
+    );
+    const received: unknown[] = [];
+
+    await readOpenAiStream(response, new AbortController().signal, (chunk) => {
+      received.push(chunk);
+    });
+
+    expect(received).toHaveLength(0);
+  });
+});

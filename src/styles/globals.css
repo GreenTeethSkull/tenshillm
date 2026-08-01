@@ -119,7 +119,7 @@
   --secondary: hsl(232 14% 31%);
   --secondary-foreground: hsl(60 30% 96%);
   --muted-bg: hsl(225 15% 24%);
-  --muted-foreground: hsl(225 27% 51%);
+  --muted-foreground: hsl(225 27% 63%);
   --destructive: hsl(12 71% 54%);
   --destructive-foreground: hsl(60 30% 96%);
   --border: hsl(232 14% 31%);
@@ -164,7 +164,7 @@
   --secondary: hsl(240 18% 84%);
   --secondary-foreground: hsl(0 0% 12%);
   --muted-bg: hsl(52 19% 84%);
-  --muted-foreground: hsl(49 18% 36%);
+  --muted-foreground: hsl(49 18% 40%);
   --destructive: hsl(6 66% 48%);
   --destructive-foreground: hsl(48 100% 96%);
   --border: hsl(50 15% 80%);
@@ -209,7 +209,7 @@
   --secondary: hsl(233 18% 24%);
   --secondary-foreground: hsl(230 35% 86%);
   --muted-bg: hsl(234 22% 18%);
-  --muted-foreground: hsl(223 30% 56%);
+  --muted-foreground: hsl(223 30% 64%);
   --destructive: hsl(345 81% 60%);
   --destructive-foreground: hsl(230 35% 86%);
   --border: hsl(231 24% 30%);
@@ -254,7 +254,7 @@
   --secondary: hsl(234 12% 31%);
   --secondary-foreground: hsl(228 49% 88%);
   --muted-bg: hsl(234 17% 23%);
-  --muted-foreground: hsl(228 24% 64%);
+  --muted-foreground: hsl(228 24% 68%);
   --destructive: hsl(343 81% 75%);
   --destructive-foreground: hsl(240 21% 15%);
   --border: hsl(233 8% 39%);
@@ -299,7 +299,7 @@
   --secondary: hsl(220 16% 31%);
   --secondary-foreground: hsl(218 27% 95%);
   --muted-bg: hsl(222 14% 28%);
-  --muted-foreground: hsl(216 18% 56%);
+  --muted-foreground: hsl(216 18% 64%);
   --destructive: hsl(354 43% 58%);
   --destructive-foreground: hsl(218 27% 95%);
   --border: hsl(220 16% 36%);
@@ -344,7 +344,7 @@
   --secondary: hsl(30 6% 28%);
   --secondary-foreground: hsl(39 40% 82%);
   --muted-bg: hsl(30 9% 22%);
-  --muted-foreground: hsl(39 22% 58%);
+  --muted-foreground: hsl(39 22% 64%);
   --destructive: hsl(9 88% 59%);
   --destructive-foreground: hsl(0 0% 14%);
   --border: hsl(30 9% 30%);
@@ -375,11 +375,10 @@
 /* =========================================================================
    Base element styles
    ========================================================================= */
-* {
-  margin: 0;
-  padding: 0;
+*,
+::before,
+::after {
   box-sizing: border-box;
-  border-color: var(--border);
 }
 
 html,
@@ -388,6 +387,13 @@ body,
   height: 100%;
   width: 100%;
   overflow: hidden;
+}
+
+html {
+  color-scheme: dark;
+}
+html[data-theme="alucard"] {
+  color-scheme: light;
 }
 
 body {
@@ -399,6 +405,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "cv11", "ss01", "ss03";
   font-variant-numeric: tabular-nums;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
 }
 
 .tabular {
@@ -696,6 +709,7 @@ button,
 [role="button"] {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  touch-action: manipulation;
 }
 
 :focus-visible {

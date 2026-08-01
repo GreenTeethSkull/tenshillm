@@ -45,6 +45,8 @@ interface TextInputProps {
   placeholder?: string;
   type?: 'text' | 'password' | 'number';
   id?: string;
+  name?: string;
+  autoComplete?: string;
   className?: string;
   mono?: boolean;
 }
@@ -55,19 +57,23 @@ export function TextInput({
   placeholder,
   type = 'text',
   id,
+  name,
+  autoComplete,
   className,
   mono,
 }: TextInputProps) {
   return (
     <input
       id={id}
+      name={name}
+      autoComplete={autoComplete}
       type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       className={cn(
         'w-full h-10 rounded-lg border border-input bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground',
-        'focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring transition-all',
+        'focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring transition-[background-color,border-color,box-shadow,opacity,transform]',
         mono && 'font-mono',
         className
       )}
@@ -106,7 +112,7 @@ export function TextAreaInput({
       rows={rows}
       className={cn(
         'w-full rounded-lg border border-input bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground',
-        'focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring transition-all resize-y leading-relaxed',
+        'focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring transition-[background-color,border-color,box-shadow,opacity,transform] resize-y leading-relaxed',
         mono && 'font-mono',
         className
       )}
@@ -133,7 +139,7 @@ export function SelectInput({ value, onChange, children, id }: SelectInputProps)
         onChange={(e) => onChange(e.target.value)}
         className={cn(
           'w-full h-10 rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground appearance-none cursor-pointer',
-          'focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring transition-all'
+          'focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring transition-[background-color,border-color,box-shadow,opacity,transform]'
         )}
       >
         {children}
@@ -254,20 +260,21 @@ export function PrimaryButton({
   onClick,
   children,
   disabled,
+  type = 'button',
   ariaLabel,
   title,
   className,
 }: ButtonProps) {
   return (
     <button
-      type="button"
+      type={type}
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
       title={title}
       className={cn(
         'inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium',
-        'hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed',
+        'hover:opacity-90 active:scale-[0.98] transition-[background-color,border-color,color,opacity,box-shadow,transform] disabled:opacity-40 disabled:cursor-not-allowed',
         className
       )}
     >
@@ -280,20 +287,21 @@ export function GhostButton({
   onClick,
   children,
   disabled,
+  type = 'button',
   ariaLabel,
   title,
   className,
 }: ButtonProps) {
   return (
     <button
-      type="button"
+      type={type}
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
       title={title}
       className={cn(
         'inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg border border-border bg-card text-sm text-foreground',
-        'hover:bg-muted-bg active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed',
+        'hover:bg-muted-bg active:scale-[0.98] transition-[background-color,border-color,color,opacity,box-shadow,transform] disabled:opacity-40 disabled:cursor-not-allowed',
         className
       )}
     >

@@ -5,7 +5,7 @@ use std::time::Duration;
 use uuid::Uuid;
 
 const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
-const MCP_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+const HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChatMessage {
@@ -61,7 +61,7 @@ struct McpCallToolResponse {
 
 fn mcp_client() -> Result<Client, String> {
     Client::builder()
-        .timeout(MCP_REQUEST_TIMEOUT)
+        .timeout(HTTP_REQUEST_TIMEOUT)
         .build()
         .map_err(|error| format!("Failed to create MCP client: {error}"))
 }
@@ -217,6 +217,30 @@ fn mcp_result(response: serde_json::Value) -> Result<serde_json::Value, String> 
         .get("result")
         .cloned()
         .ok_or_else(|| "MCP response did not contain a result".to_owned())
+}
+
+async fn read_json_response(
+    response: reqwest::Response,
+    provider: &str,
+) -> Result<serde_json::Value, String> {
+    let status = response.status();
+    let body = response
+        .text()
+        .await
+        .map_err(|error| format!("Failed to read {provider} response: {error}"))?;
+
+    if !status.is_success() {
+        return Err(format!(
+            "{provider} search failed ({status}): {}",
+            if body.trim().is_empty() {
+                "no response body"
+            } else {
+                body.as_str()
+            }
+        ));
+    }
+
+    serde_json::from_str(&body).map_err(|error| format!("Invalid {provider} response: {error}"))
 }
 
 async fn initialize_mcp_session(
@@ -463,7 +487,11 @@ async fn web_search(
     query: String,
     max_results: u32,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    let client = Client::builder()
+        .timeout(HTTP_REQUEST_TIMEOUT)
+        .build()
+        .map_err(|error| format!("Failed to create search client: {error}"))?;
+    let max_results_param = max_results.to_string();
 
     let result = match provider.as_str() {
         "tavily" => {
@@ -480,33 +508,46 @@ async fn web_search(
                 .send()
                 .await
                 .map_err(|e| format!("Tavily request failed: {}", e))?;
-
-            let text = response
-                .text()
+            read_json_response(response, "Tavily").await?
+        }
+        "serpapi" => {
+            let response = client
+                .get("https://serpapi.com/search.json")
+                .query(&[
+                    ("engine", "google"),
+                    ("q", query.as_str()),
+                    ("api_key", api_key.as_str()),
+                    ("num", max_results_param.as_str()),
+                ])
+                .send()
                 .await
-                .map_err(|e| format!("Failed to read Tavily response: {}", e))?;
-
-            serde_json::from_str(&text).map_err(|e| format!("Invalid Tavily response: {}", e))?
+                .map_err(|e| format!("SerpAPI request failed: {}", e))?;
+            read_json_response(response, "SerpAPI").await?
         }
         "brave" => {
             let response = client
-                .get(format!(
-                    "https://api.search.brave.com/res/v1/web/search?q={}&count={}",
-                    urlencoding::encode(&query),
-                    max_results
-                ))
+                .get("https://api.search.brave.com/res/v1/web/search")
+                .query(&[("q", query.as_str()), ("count", max_results_param.as_str())])
                 .header("X-Subscription-Token", &api_key)
                 .header("Accept", "application/json")
                 .send()
                 .await
                 .map_err(|e| format!("Brave request failed: {}", e))?;
-
-            let text = response
-                .text()
+            read_json_response(response, "Brave").await?
+        }
+        "duckduckgo" => {
+            let response = client
+                .get("https://api.duckduckgo.com/")
+                .query(&[
+                    ("q", query.as_str()),
+                    ("format", "json"),
+                    ("no_html", "1"),
+                    ("no_redirect", "1"),
+                ])
+                .send()
                 .await
-                .map_err(|e| format!("Failed to read Brave response: {}", e))?;
-
-            serde_json::from_str(&text).map_err(|e| format!("Invalid Brave response: {}", e))?
+                .map_err(|e| format!("DuckDuckGo request failed: {}", e))?;
+            read_json_response(response, "DuckDuckGo").await?
         }
         _ => {
             return Err(format!("Unsupported search provider: {}", provider));
@@ -534,4 +575,61 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_json_rpc_response() {
+        let messages = parse_mcp_messages(
+            r#"{"jsonrpc":"2.0","id":"request-1","result":{"tools":[]}}"#,
+            "application/json",
+        )
+        .expect("JSON response should parse");
+
+        let response = find_mcp_response(&messages, "request-1").expect("response should match");
+        assert_eq!(response["result"]["tools"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn parses_multiple_sse_messages() {
+        let body = concat!(
+            "event: message\n",
+            "data: {\"jsonrpc\":\"2.0\",\"id\":\"one\",\"result\":{}}\n",
+            "\n",
+            "event: message\n",
+            "data: {\"jsonrpc\":\"2.0\",\"id\":\"two\",\"result\":{}}\n",
+            "\n",
+        );
+        let messages =
+            parse_mcp_messages(body, "text/event-stream").expect("SSE response should parse");
+
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[1]["id"], "two");
+    }
+
+    #[test]
+    fn selects_the_matching_json_rpc_id() {
+        let messages = vec![
+            serde_json::json!({"jsonrpc":"2.0","method":"notifications/progress"}),
+            serde_json::json!({"jsonrpc":"2.0","id":"target","result":{"ok":true}}),
+        ];
+
+        let response = find_mcp_response(&messages, "target").expect("response should match");
+        assert_eq!(response["result"]["ok"], true);
+    }
+
+    #[test]
+    fn reports_json_rpc_errors() {
+        let messages = vec![serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "request-1",
+            "error": {"code": -32602, "message": "Invalid arguments"}
+        })];
+
+        let error = find_mcp_response(&messages, "request-1").expect_err("error should propagate");
+        assert!(error.contains("Invalid arguments"));
+    }
 }

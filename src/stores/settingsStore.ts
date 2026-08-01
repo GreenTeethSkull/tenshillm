@@ -103,7 +103,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const raw = localStorage.getItem('tenshillm-settings');
       if (raw) {
         const data = JSON.parse(raw);
-        set(data);
+        const mcpServers = Array.isArray(data.mcpServers)
+          ? data.mcpServers.map((server: McpServer) => ({
+              ...server,
+              // MCP sessions are runtime state and may expire between launches.
+              connected: false,
+              tools: [],
+              sessionId: undefined,
+              protocolVersion: undefined,
+            }))
+          : [];
+        set({ ...data, mcpServers });
       }
     } catch {
       // ignore

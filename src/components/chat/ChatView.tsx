@@ -13,9 +13,10 @@ import type {
   ToolCall,
   ToolResult,
 } from '@/types';
-import { buildChatPayload, parseStreamChunk } from '@/lib/openai';
+import { buildChatPayload, readOpenAiStream } from '@/lib/openai';
 import { callMcpTool, listMcpTools } from '@/lib/mcp';
-import { fetch } from '@tauri-apps/plugin-http';
+import { describeRuntimeError, isTauriRuntime } from '@/lib/runtime';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 
@@ -30,6 +31,8 @@ interface StreamUpdate {
   toolCalls: ToolCall[];
 }
 
+const EMPTY_MESSAGES: Message[] = [];
+
 function buildDisplayContent(content: string, reasoning: string): string {
   if (!reasoning) return content;
 
@@ -41,56 +44,6 @@ function isAbortError(error: unknown, signal: AbortSignal): boolean {
   return error instanceof Error && (error.name === 'AbortError' || error.message === 'Request cancelled');
 }
 
-async function readSseResponse(
-  response: Response,
-  signal: AbortSignal,
-  onChunk: (chunk: ReturnType<typeof parseStreamChunk>) => void
-): Promise<void> {
-  if (!response.body) {
-    throw new Error('The provider returned an empty response body');
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let streamFinished = false;
-
-  const processLine = (line: string) => {
-    const trimmed = line.trim();
-    if (!trimmed || !trimmed.startsWith('data:')) return;
-    if (trimmed.slice(5).trim() === '[DONE]') {
-      streamFinished = true;
-      return;
-    }
-
-    onChunk(parseStreamChunk(trimmed));
-  };
-
-  try {
-    while (!streamFinished) {
-      if (signal.aborted) throw new Error('Request cancelled');
-
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() || '';
-      lines.forEach(processLine);
-    }
-
-    buffer += decoder.decode();
-    if (buffer) processLine(buffer);
-  } finally {
-    try {
-      await reader.cancel();
-    } catch {
-      // The HTTP plugin may already have cancelled the native response.
-    }
-    reader.releaseLock();
-  }
-}
-
 async function requestCompletion(
   baseUrl: string,
   apiKey: string,
@@ -98,7 +51,7 @@ async function requestCompletion(
   signal: AbortSignal,
   onUpdate: (update: StreamUpdate) => void
 ): Promise<StreamedCompletion> {
-  const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+  const requestInit = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -108,7 +61,11 @@ async function requestCompletion(
     body: JSON.stringify(payload),
     signal,
     connectTimeout: 30000,
-  });
+  } as RequestInit & { connectTimeout: number };
+  const response = await (isTauriRuntime() ? tauriFetch : window.fetch)(
+    `${baseUrl.replace(/\/+$/, '')}/chat/completions`,
+    requestInit
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -150,8 +107,8 @@ async function requestCompletion(
   let reasoning = '';
   const toolCalls = new Map<number, ToolCall>();
 
-  await readSseResponse(response, signal, (chunk) => {
-    const delta = chunk?.choices[0]?.delta;
+  await readOpenAiStream(response, signal, (chunk) => {
+    const delta = chunk.choices[0]?.delta;
     if (!delta) return;
 
     if (delta.content) content += delta.content;
@@ -219,6 +176,11 @@ function toolResultFailed(result: unknown): boolean {
   );
 }
 
+function canUseSearch(searchConfig: SearchConfig): boolean {
+  return searchConfig.enabled &&
+    (searchConfig.provider === 'duckduckgo' || Boolean(searchConfig.apiKey.trim()));
+}
+
 type UpdateMcpServer = (id: string, updates: Partial<McpServer>) => void;
 
 async function prepareMcpServers(
@@ -252,8 +214,9 @@ async function prepareMcpServers(
       preparedServers.push(connectedServer);
     } catch (error) {
       updateMcpServer(server.id, { connected: false });
+      const message = describeRuntimeError(error);
       console.error(`[TenshiLLM] MCP connection failed for ${server.name}:`, error);
-      toast.error(`MCP server unavailable: ${server.name}`);
+      toast.error(`${server.name}: ${message}`);
     }
   }
 
@@ -280,6 +243,9 @@ async function executeToolCall(
 
   if (toolCall.name === 'web_search') {
     try {
+      if (!isTauriRuntime()) {
+        throw new Error('Web search requires the Tauri desktop or mobile runtime.');
+      }
       const query =
         argumentsValue && typeof argumentsValue === 'object' && 'query' in argumentsValue
           ? (argumentsValue as { query?: unknown }).query
@@ -302,7 +268,7 @@ async function executeToolCall(
     } catch (error) {
       return {
         toolCallId: toolCall.id,
-        content: `web_search failed: ${error instanceof Error ? error.message : String(error)}`,
+        content: `web_search failed: ${describeRuntimeError(error)}`,
         isError: true,
       };
     }
@@ -343,7 +309,7 @@ async function executeToolCall(
   } catch (error) {
     return {
       toolCallId: toolCall.id,
-      content: `MCP tool ${toolCall.name} failed: ${error instanceof Error ? error.message : String(error)}`,
+      content: `MCP tool ${toolCall.name} failed: ${describeRuntimeError(error)}`,
       isError: true,
     };
   }
@@ -378,7 +344,9 @@ export function ChatView() {
   const abortRef = useRef<AbortController | null>(null);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
-  const currentMessages = activeConversationId ? messages[activeConversationId] || [] : [];
+  const currentMessages = activeConversationId
+    ? messages[activeConversationId] || EMPTY_MESSAGES
+    : EMPTY_MESSAGES;
   const provider = providers.find((p) => p.id === activeConversation?.providerId);
   const model = provider?.models.find((m) => m.id === activeConversation?.modelId);
 
@@ -468,7 +436,7 @@ export function ChatView() {
           model.maxOutputTokens
         );
 
-        if (model.supportsTools && searchConfig.enabled && searchConfig.apiKey) {
+        if (model.supportsTools && canUseSearch(searchConfig)) {
           payload.tools = payload.tools || [];
           payload.tools.push({
             type: 'function',
@@ -562,7 +530,9 @@ export function ChatView() {
       if (signal && isAbortError(err, signal)) return;
       const errorMsg = err instanceof Error ? err.message : `Unknown error: ${String(err)}`;
       console.error('[TenshiLLM] Request error:', err);
-      updateMessage(activeConversationId, activeAssistantId, { content: `Error: ${errorMsg}` });
+      updateMessage(activeConversationId, activeAssistantId, {
+        content: `Error: ${describeRuntimeError(errorMsg)}`,
+      });
     } finally {
       setIsStreaming(false);
       setStreamingContent('');
@@ -613,7 +583,7 @@ export function ChatView() {
           <button
             type="button"
             onClick={() => setSettingsOpen(true)}
-            className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:opacity-90 active:scale-[0.98] transition-all"
+            className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:opacity-90 active:scale-[0.98] transition-[background-color,border-color,color,opacity,box-shadow,transform]"
           >
             Configure your first provider
           </button>
