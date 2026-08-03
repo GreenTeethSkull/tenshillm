@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
   buildChatPayload,
+  chatCompletionsEndpoint,
+  normalizeInlineThinking,
   parseStreamChunk,
   readOpenAiStream,
 } from '../src/lib/openai';
@@ -33,6 +35,15 @@ const echoTool: McpTool = {
 };
 
 describe('OpenAI-compatible payloads', () => {
+  test('accepts both provider base URLs and completion URLs', () => {
+    expect(chatCompletionsEndpoint('https://example.com/v1')).toBe(
+      'https://example.com/v1/chat/completions'
+    );
+    expect(chatCompletionsEndpoint('https://example.com/v1/chat/completions/')).toBe(
+      'https://example.com/v1/chat/completions'
+    );
+  });
+
   test('keeps tool-call and tool-result messages in protocol order', () => {
     const payload = buildChatPayload(
       [
@@ -110,6 +121,27 @@ describe('OpenAI-compatible payloads', () => {
         image_url: { url: 'data:image/png;base64,YWJj', detail: 'auto' },
       },
     ]);
+  });
+});
+
+describe('completion content normalization', () => {
+  test('moves inline think blocks into reasoning and keeps the answer clean', () => {
+    expect(
+      normalizeInlineThinking(
+        '<think>private reasoning</think>\n\nSkill hello-world invoked successfully. ✅',
+        ''
+      )
+    ).toEqual({
+      content: 'Skill hello-world invoked successfully. ✅',
+      reasoning: 'private reasoning',
+    });
+  });
+
+  test('handles an unfinished think block while streaming', () => {
+    expect(normalizeInlineThinking('<think>still thinking', '')).toEqual({
+      content: '',
+      reasoning: 'still thinking',
+    });
   });
 });
 

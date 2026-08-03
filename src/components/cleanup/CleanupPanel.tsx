@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useThemeStore } from '@/stores/themeStore';
 import {
   Trash2,
   Archive,
@@ -30,6 +32,8 @@ export function CleanupPanel() {
     deleteArchivedConversations,
     deleteAllConversations,
   } = useChatStore();
+  const resetSettings = useSettingsStore((state) => state.resetSettings);
+  const resetTheme = useThemeStore((state) => state.resetTheme);
 
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
 
@@ -45,6 +49,9 @@ export function CleanupPanel() {
           break;
         case 'delete-all':
           deleteAllConversations();
+          resetSettings();
+          resetTheme();
+          localStorage.removeItem('tenshillm-search-cache');
           break;
         case 'clear-cache':
           localStorage.removeItem('tenshillm-search-cache');

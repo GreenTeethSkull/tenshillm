@@ -77,3 +77,66 @@ describe('MCP runtime state hydration', () => {
     storage.delete('tenshillm-settings');
   });
 });
+
+describe('search settings', () => {
+  test('defaults to DuckDuckGo without an API key', () => {
+    storage.delete('tenshillm-settings');
+    useSettingsStore.setState({
+      searchConfig: {
+        enabled: false,
+        provider: 'duckduckgo',
+        apiKey: '',
+        maxResults: 5,
+        region: 'es-ES',
+      },
+    });
+
+    expect(useSettingsStore.getState().searchConfig.provider).toBe('duckduckgo');
+    expect(useSettingsStore.getState().searchConfig.apiKey).toBe('');
+  });
+
+  test('persists the new switch value immediately', () => {
+    useSettingsStore.getState().setSearchConfig({
+      ...useSettingsStore.getState().searchConfig,
+      enabled: true,
+      provider: 'duckduckgo',
+      apiKey: '',
+    });
+
+    const persisted = JSON.parse(storage.get('tenshillm-settings') || '{}');
+    expect(persisted.searchConfig.enabled).toBe(true);
+    expect(persisted.searchConfig.provider).toBe('duckduckgo');
+    expect(persisted.searchConfig.apiKey).toBe('');
+
+    storage.delete('tenshillm-settings');
+  });
+
+  test('delete-all reset removes settings and restores defaults', () => {
+    useSettingsStore.setState({
+      providers: [{ id: 'provider-1' } as never],
+      activeProviderId: 'provider-1',
+      activeModelId: 'model-1',
+      defaultSystemPrompt: 'Custom prompt',
+    });
+    storage.set('tenshillm-settings', JSON.stringify({ providers: [{ id: 'provider-1' }] }));
+
+    useSettingsStore.getState().resetSettings();
+    const state = useSettingsStore.getState();
+
+    expect(storage.has('tenshillm-settings')).toBe(false);
+    expect(state.providers).toEqual([]);
+    expect(state.activeProviderId).toBeNull();
+    expect(state.activeModelId).toBeNull();
+    expect(state.searchConfig.provider).toBe('duckduckgo');
+    expect(state.defaultSystemPrompt).toBe('You are a helpful AI assistant.');
+  });
+
+  test('persists the system prompt immediately', () => {
+    useSettingsStore.getState().setDefaultSystemPrompt('Custom system prompt');
+
+    const persisted = JSON.parse(storage.get('tenshillm-settings') || '{}');
+    expect(persisted.defaultSystemPrompt).toBe('Custom system prompt');
+
+    useSettingsStore.getState().resetSettings();
+  });
+});

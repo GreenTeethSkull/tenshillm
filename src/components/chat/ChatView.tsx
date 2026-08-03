@@ -13,7 +13,12 @@ import type {
   ToolCall,
   ToolResult,
 } from '@/types';
-import { buildChatPayload, readOpenAiStream } from '@/lib/openai';
+import {
+  buildChatPayload,
+  chatCompletionsEndpoint,
+  normalizeInlineThinking,
+  readOpenAiStream,
+} from '@/lib/openai';
 import { callMcpTool, listMcpTools } from '@/lib/mcp';
 import { describeRuntimeError, isTauriRuntime } from '@/lib/runtime';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
@@ -34,9 +39,10 @@ interface StreamUpdate {
 const EMPTY_MESSAGES: Message[] = [];
 
 function buildDisplayContent(content: string, reasoning: string): string {
-  if (!reasoning) return content;
+  const normalized = normalizeInlineThinking(content, reasoning);
+  if (!normalized.reasoning) return normalized.content;
 
-  return `<details><summary>Thinking</summary>\n\n${reasoning}\n\n</details>\n\n${content}`;
+  return `<details><summary>Thinking</summary>\n\n${normalized.reasoning}\n\n</details>\n\n${normalized.content}`;
 }
 
 function isAbortError(error: unknown, signal: AbortSignal): boolean {
@@ -63,7 +69,7 @@ async function requestCompletion(
     connectTimeout: 30000,
   } as RequestInit & { connectTimeout: number };
   const response = await (isTauriRuntime() ? tauriFetch : window.fetch)(
-    `${baseUrl.replace(/\/+$/, '')}/chat/completions`,
+    chatCompletionsEndpoint(baseUrl),
     requestInit
   );
 
@@ -94,13 +100,15 @@ async function requestCompletion(
         name: toolCall.function?.name || '',
         arguments: toolCall.function?.arguments || '{}',
       }));
-    const content = message?.content || '';
-    const reasoning = message?.reasoning_content || '';
+    const normalized = normalizeInlineThinking(
+      message?.content || '',
+      message?.reasoning_content || ''
+    );
     onUpdate({
-      displayContent: buildDisplayContent(content, reasoning),
+      displayContent: buildDisplayContent(normalized.content, normalized.reasoning),
       toolCalls,
     });
-    return { content, reasoning, toolCalls };
+    return { ...normalized, toolCalls };
   }
 
   let content = '';
@@ -136,8 +144,7 @@ async function requestCompletion(
   });
 
   return {
-    content,
-    reasoning,
+    ...normalizeInlineThinking(content, reasoning),
     toolCalls: Array.from(toolCalls.values()).filter((toolCall) => toolCall.name),
   };
 }

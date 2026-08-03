@@ -729,7 +729,6 @@ export function SettingsPanel() {
                   checked={searchConfig.enabled}
                   onChange={(v) => {
                     setSearchConfig({ ...searchConfig, enabled: v });
-                    saveSettings();
                   }}
                   label="Enable web search"
                 />
@@ -744,7 +743,6 @@ export function SettingsPanel() {
                       ...searchConfig,
                       provider: v as SearchConfig['provider'],
                     });
-                    saveSettings();
                   }}
                 >
                   <option value="tavily">Tavily (Recommended)</option>
@@ -762,7 +760,6 @@ export function SettingsPanel() {
                     value={searchConfig.apiKey}
                     onChange={(v) => {
                       setSearchConfig({ ...searchConfig, apiKey: v });
-                      saveSettings();
                     }}
                     placeholder="Enter your API key"
                   />
@@ -771,19 +768,21 @@ export function SettingsPanel() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium">Max results</label>
+                  <label htmlFor="search-max-results" className="text-xs font-medium">
+                    Max results
+                  </label>
                   <span className="h-5 px-1.5 rounded text-[10px] font-medium bg-muted-bg border border-border text-muted-foreground inline-flex items-center">
                     {searchConfig.maxResults}
                   </span>
                 </div>
                 <RangeInput
+                  id="search-max-results"
                   min={1}
                   max={10}
                   step={1}
                   value={searchConfig.maxResults}
                   onChange={(v) => {
                     setSearchConfig({ ...searchConfig, maxResults: v });
-                    saveSettings();
                   }}
                 />
               </div>
@@ -890,7 +889,6 @@ export function SettingsPanel() {
                   value={defaultSystemPrompt}
                   onChange={(v) => {
                     setDefaultSystemPrompt(v);
-                    saveSettings();
                   }}
                   rows={4}
                   placeholder="Base instructions for every conversation"

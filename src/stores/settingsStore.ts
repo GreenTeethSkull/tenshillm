@@ -30,17 +30,34 @@ interface SettingsState {
   removeAgentSkill: (id: string) => void;
   setDefaultSystemPrompt: (prompt: string) => void;
   setFontSize: (size: number) => void;
+  resetSettings: () => void;
   loadSettings: () => void;
   saveSettings: () => void;
 }
 
 const DEFAULT_SEARCH_CONFIG: SearchConfig = {
   enabled: false,
-  provider: 'tavily',
+  provider: 'duckduckgo',
   apiKey: '',
   maxResults: 5,
   region: 'es-ES',
 };
+
+function persistSettings(state: SettingsState): void {
+  localStorage.setItem(
+    'tenshillm-settings',
+    JSON.stringify({
+      providers: state.providers,
+      activeProviderId: state.activeProviderId,
+      activeModelId: state.activeModelId,
+      mcpServers: state.mcpServers,
+      searchConfig: state.searchConfig,
+      agentSkills: state.agentSkills,
+      defaultSystemPrompt: state.defaultSystemPrompt,
+      fontSize: state.fontSize,
+    })
+  );
+}
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   providers: [],
@@ -87,7 +104,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     })),
   removeMcpServer: (id) =>
     set((s) => ({ mcpServers: s.mcpServers.filter((srv) => srv.id !== id) })),
-  setSearchConfig: (config) => set({ searchConfig: config }),
+  setSearchConfig: (config) => {
+    set({ searchConfig: config });
+    // Search controls update and persist together so a rapid toggle cannot
+    // serialize the previous Zustand snapshot.
+    persistSettings(get());
+  },
   setAgentSkills: (skills) => set({ agentSkills: skills }),
   addAgentSkill: (skill) => set((s) => ({ agentSkills: [...s.agentSkills, skill] })),
   updateAgentSkill: (id, updates) =>
@@ -96,8 +118,24 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     })),
   removeAgentSkill: (id) =>
     set((s) => ({ agentSkills: s.agentSkills.filter((sk) => sk.id !== id) })),
-  setDefaultSystemPrompt: (prompt) => set({ defaultSystemPrompt: prompt }),
+  setDefaultSystemPrompt: (prompt) => {
+    set({ defaultSystemPrompt: prompt });
+    persistSettings(get());
+  },
   setFontSize: (size) => set({ fontSize: size }),
+  resetSettings: () => {
+    localStorage.removeItem('tenshillm-settings');
+    set({
+      providers: [],
+      activeProviderId: null,
+      activeModelId: null,
+      mcpServers: [],
+      searchConfig: { ...DEFAULT_SEARCH_CONFIG },
+      agentSkills: [],
+      defaultSystemPrompt: 'You are a helpful AI assistant.',
+      fontSize: 14,
+    });
+  },
   loadSettings: () => {
     try {
       const raw = localStorage.getItem('tenshillm-settings');
@@ -120,17 +158,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
   saveSettings: () => {
-    const state = get();
-    const data = {
-      providers: state.providers,
-      activeProviderId: state.activeProviderId,
-      activeModelId: state.activeModelId,
-      mcpServers: state.mcpServers,
-      searchConfig: state.searchConfig,
-      agentSkills: state.agentSkills,
-      defaultSystemPrompt: state.defaultSystemPrompt,
-      fontSize: state.fontSize,
-    };
-    localStorage.setItem('tenshillm-settings', JSON.stringify(data));
+    persistSettings(get());
   },
 }));

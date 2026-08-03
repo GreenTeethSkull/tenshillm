@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Local E2E credentials and test fixtures
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

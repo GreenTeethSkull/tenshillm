@@ -33,7 +33,7 @@ src/
 │   ├── settingsStore.ts      # Providers, MCP, skills, search config
 │   └── chatStore.ts          # Conversations, messages, UI state
 ├── lib/
-│   ├── openai.ts             # OpenAI payload builder + stream parser
+│   ├── openai.ts             # OpenAI payload builder, endpoint helper + stream parser
 │   └── utils.ts              # Lightweight `cn()` className joiner (no tailwind-merge)
 └── components/
     ├── Overlay.tsx           # Custom Drawer (right slide-over) + Modal (centered), Escape-handled
@@ -79,6 +79,16 @@ src-tauri/
 - Models like `mimo-v2.5-pro` return `reasoning_content` alongside `content`
 - The streaming parser handles both fields
 - If only `reasoning_content` is present, it becomes the displayed response
+- Inline `<think>...</think>` blocks are moved into the collapsible Thinking section
+
+### 2.1 Provider Endpoint Compatibility
+- Provider URLs may be entered as a base URL or as a complete `/chat/completions` endpoint
+- Frontend and Rust backend normalize the URL without duplicating the completion path
+
+### 2.2 DuckDuckGo Search
+- DuckDuckGo is the default provider and does not require an API key
+- The Rust backend uses DuckDuckGo's HTML results endpoint and normalizes title, URL, and snippet fields
+- Anti-bot responses fail explicitly instead of being treated as empty successful results
 
 ### 3. MCP Remote Only
 - Mobile platforms (Android/iOS) can't spawn local processes reliably
@@ -116,9 +126,12 @@ src-tauri/
 - `activeProviderId` / `activeModelId`: Currently selected provider/model
 - `mcpServers`: Remote MCP server configurations
 - `searchConfig`: Web search provider and API key
+- New installations default to DuckDuckGo with an empty API key
 - `agentSkills`: Markdown skill files
 - `defaultSystemPrompt`: Base system prompt for all conversations
 - Persists to `tenshillm-settings`
+- Search controls and the system prompt persist immediately after changes
+- `resetSettings()` clears providers, MCP servers, skills, search, prompt, and font size
 
 **chatStore.ts**
 - `conversations`: Array of conversation metadata
@@ -135,7 +148,8 @@ src-tauri/
 4. Use `fetch` from `@tauri-apps/plugin-http` to POST to API
 5. Parse response text line by line for SSE chunks
 6. Handle both `content` and `reasoning_content` deltas
-7. Update UI via Zustand stores
+7. Normalize inline `<think>` blocks before displaying the answer
+8. Update UI via Zustand stores
 
 ### MessageBubble.tsx — Rendering
 - **User messages**: right-aligned, `rounded-2xl rounded-tr-md` bubble (asymmetric corner like Telegram/iMessage), `px-5 py-3`, `bg-user-bubble text-user-bubble-foreground`
@@ -160,6 +174,7 @@ src-tauri/
 - Stats grid (active chats, trash, total messages, storage)
 - Trash list with restore / permanent-delete per conversation
 - Destructive actions with two-step confirm: **Empty Trash**, **Clear Cache** (`localStorage.removeItem('tenshillm-search-cache')`), **Delete Everything**
+- **Delete Everything** also resets settings and theme to defaults
 
 ## CSS Theming System
 
@@ -220,6 +235,11 @@ A single shared `:root` block maps HeroUI's design tokens to our semantic tokens
 1. Create file in `src/stores/`
 2. Use `zustand`'s `create()` with state and actions
 3. Add persistence with `localStorage` if needed
+
+### Running the Manual E2E Checks
+1. Keep real test credentials in the ignored `.env` file; use `.env.example` for the variable reference
+2. Follow `docs/testing/manual-e2e.md` for the provider, MCP, skills, system prompt, search, chat, and Cleanup sequence
+3. Never add `.env`, decoded Markdown, screenshots containing credentials, or raw API responses to Git
 
 ## Build Commands
 
@@ -318,8 +338,8 @@ ln -sf aarch64-linux-android21-clang++ aarch64-linux-android-clang++
 ```
 
 ### Empty Response from Reasoning Models
-**Problem**: Model returns `content: null` with `reasoning_content`
-**Solution**: The streaming parser handles this — if only reasoning is present, it becomes the displayed response
+**Problem**: Model returns `content: null` with `reasoning_content`, or places reasoning in inline `<think>` tags
+**Solution**: The parser handles both fields, moves inline thinking into the collapsible Thinking section, and uses reasoning as the displayed response when content is empty
 
 ## File Naming Conventions
 
@@ -365,6 +385,8 @@ ln -sf aarch64-linux-android21-clang++ aarch64-linux-android-clang++
 ## Security Notes
 
 - API keys are stored in localStorage (not encrypted)
+- Local E2E credentials belong in `.env`, which is ignored by Git; `.env.example` contains placeholders only
+- Never include decoded system prompts, skill content, MCP headers, or raw provider responses in tracked files
 - For production, consider using `tauri-plugin-stronghold` for keychain storage
 - CSP is configured to allow connections to any HTTPS/HTTP endpoint
 - No data is sent to external servers except user-configured API endpoints

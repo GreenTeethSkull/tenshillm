@@ -17,6 +17,7 @@ function applyTheme(theme: ThemeName) {
 interface ThemeState {
   theme: ThemeName;
   setTheme: (theme: ThemeName) => void;
+  resetTheme: () => void;
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
@@ -25,5 +26,10 @@ export const useThemeStore = create<ThemeState>((set) => ({
     localStorage.setItem('tenshillm-theme', theme);
     applyTheme(theme);
     set({ theme });
+  },
+  resetTheme: () => {
+    localStorage.removeItem('tenshillm-theme');
+    applyTheme('dracula');
+    set({ theme: 'dracula' });
   },
 }));

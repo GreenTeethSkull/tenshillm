@@ -20,7 +20,7 @@
 ### Core Chat
 - **OpenAI-compatible API**: Connect to any provider (OpenRouter, Ollama, OpenCode, custom endpoints)
 - **Streaming responses**: Real-time SSE streaming with live updates
-- **Reasoning model support**: Full support for models with `reasoning_content` (e.g., mimo-v2.5-pro)
+- **Reasoning model support**: Supports `reasoning_content` and inline `<think>` blocks (e.g., mimo-v2.5-pro)
 - **Markdown rendering**: Rich text with syntax highlighting for code blocks
 - **Multi-conversation**: Manage multiple conversations with sidebar navigation
 
@@ -40,6 +40,8 @@
 
 ### Web Search
 - **Multiple providers**: Tavily, SerpAPI, Brave Search, DuckDuckGo
+- **Default provider**: DuckDuckGo (no API key required)
+- **Web results**: DuckDuckGo HTML results are normalized into title, URL, and snippet data
 - **Toggle on/off**: Enable/disable web search per conversation
 - **Contextual results**: Search results are provided as context to the LLM
 
@@ -56,7 +58,7 @@
 ### Data Management
 - **100% local storage**: All data stays on your device
 - **Soft delete**: Conversations go to trash before permanent deletion
-- **Cleanup tools**: Empty trash, clear cache, delete everything
+- **Cleanup tools**: Empty trash, clear cache, or reset chats, settings, theme, and cache
 - **Export/backup**: Export conversations as JSON
 
 ---
@@ -195,7 +197,12 @@ bun run test:rust
 
 # Full validation: lint, tests and production build
 bun run check
+
+# Start the local frontend for browser checks
+bun run dev
 ```
+
+For the provider, MCP, skills, system prompt, web search, chat, and cleanup sequence, follow [`docs/testing/manual-e2e.md`](docs/testing/manual-e2e.md). Local test values belong in `.env`, which is ignored by Git; `.env.example` documents the required variable names without credentials.
 
 ---
 
@@ -234,6 +241,8 @@ tenshillm/
 │       └── lib.rs                # Tauri commands (API, MCP, search)
 ├── package.json                  # Frontend dependencies
 ├── vite.config.ts                # Vite configuration
+├── docs/testing/manual-e2e.md     # Repeatable sanitized E2E runbook
+├── .env.example                   # Local E2E variable reference
 ├── AGENTS.md                     # Agent context documentation
 └── README.md                     # This file
 ```
@@ -249,7 +258,7 @@ tenshillm/
 3. Click **Add Provider**
 4. Enter:
    - **Name**: e.g., "OpenRouter"
-   - **Base URL**: e.g., `https://openrouter.ai/api/v1`
+    - **Base URL or endpoint**: e.g., `https://openrouter.ai/api/v1` or `https://provider.example.com/v1/chat/completions`
    - **API Key**: Your API key
 5. Click **Save**
 6. Click **Add Model** under the provider
@@ -280,9 +289,20 @@ tenshillm/
 
 1. Open **Settings** > **Search** tab
 2. Toggle **Enable web search**
-3. Select provider (Tavily recommended)
-4. Enter API key
+3. Select a provider (DuckDuckGo is the default and needs no API key)
+4. Enter an API key only when the selected provider requires one
 5. Adjust max results slider
+
+Provider URLs may be entered either as a base URL or as a complete `/chat/completions` endpoint. For the complete provider, MCP, skills, system prompt, search, chat, and cleanup sequence, see [`docs/testing/manual-e2e.md`](docs/testing/manual-e2e.md).
+
+### Local E2E Test Data
+
+1. Use `.env.example` as the variable reference for local test data.
+2. Keep real provider and MCP credentials in the ignored `.env` file only.
+3. Read the variables and apply them manually in the Settings forms as described by the runbook.
+4. Decode the base64 Markdown variables for the skills and system prompt only in a private terminal session.
+
+The frontend does not load `.env` automatically. The file is the single source of truth for repeatable manual test input, not application runtime configuration.
 
 ---
 

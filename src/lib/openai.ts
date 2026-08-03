@@ -1,5 +1,29 @@
 import type { Message, McpTool } from '../types';
 
+export interface NormalizedCompletionContent {
+  content: string;
+  reasoning: string;
+}
+
+export function normalizeInlineThinking(
+  content: string,
+  reasoning: string
+): NormalizedCompletionContent {
+  const inlineReasoning: string[] = [];
+  const normalizedContent = content.replace(
+    /<think>([\s\S]*?)(?:<\/think>|$)/gi,
+    (_match, value: string) => {
+      if (value.trim()) inlineReasoning.push(value.trim());
+      return '';
+    }
+  );
+
+  return {
+    content: normalizedContent.trim(),
+    reasoning: [reasoning.trim(), ...inlineReasoning].filter(Boolean).join('\n\n'),
+  };
+}
+
 export interface ChatCompletionRequest {
   model: string;
   messages: Array<{
@@ -12,6 +36,13 @@ export interface ChatCompletionRequest {
   max_tokens?: number;
   temperature?: number;
   tools?: Array<{ type: string; function: { name: string; description: string; parameters: Record<string, unknown> } }>;
+}
+
+export function chatCompletionsEndpoint(baseUrl: string): string {
+  const normalizedUrl = baseUrl.replace(/\/+$/, '');
+  return normalizedUrl.endsWith('/chat/completions')
+    ? normalizedUrl
+    : `${normalizedUrl}/chat/completions`;
 }
 
 export function buildChatPayload(

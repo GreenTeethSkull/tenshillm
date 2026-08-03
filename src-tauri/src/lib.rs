@@ -70,6 +70,23 @@ fn next_mcp_request_id() -> String {
     Uuid::new_v4().to_string()
 }
 
+fn chat_completions_url(base_url: &str) -> String {
+    let normalized_url = base_url.trim_end_matches('/');
+    if normalized_url.ends_with("/chat/completions") {
+        normalized_url.to_owned()
+    } else {
+        format!("{normalized_url}/chat/completions")
+    }
+}
+
+fn provider_api_base_url(base_url: &str) -> String {
+    let normalized_url = base_url.trim_end_matches('/');
+    normalized_url
+        .strip_suffix("/chat/completions")
+        .unwrap_or(normalized_url)
+        .to_owned()
+}
+
 async fn post_mcp_message(
     client: &Client,
     server_url: &str,
@@ -243,6 +260,139 @@ async fn read_json_response(
     serde_json::from_str(&body).map_err(|error| format!("Invalid {provider} response: {error}"))
 }
 
+fn decode_html_entities(value: &str) -> String {
+    value
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#x27;", "'")
+        .replace("&#39;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&nbsp;", " ")
+}
+
+fn strip_html_tags(value: &str) -> String {
+    let mut text = String::with_capacity(value.len());
+    let mut in_tag = false;
+
+    for character in value.chars() {
+        match character {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => text.push(character),
+            _ => {}
+        }
+    }
+
+    decode_html_entities(&text)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn decode_duckduckgo_result_url(href: &str) -> String {
+    let decoded_href = decode_html_entities(href);
+    decoded_href
+        .split_once("uddg=")
+        .and_then(|(_, encoded_url)| encoded_url.split('&').next())
+        .and_then(|encoded_url| urlencoding::decode(encoded_url).ok())
+        .map(|url| url.into_owned())
+        .unwrap_or(decoded_href)
+}
+
+fn extract_anchor_value(block: &str, marker: &str) -> Option<(String, String)> {
+    let anchor_start = block.find(marker)?;
+    let value_start = anchor_start + marker.len();
+    let value_end = value_start + block[value_start..].find('"')?;
+    let tag_end = block[value_end..].find('>')? + value_end + 1;
+    let content_end = tag_end + block[tag_end..].find("</a>")?;
+
+    Some((
+        block[value_start..value_end].to_owned(),
+        block[tag_end..content_end].to_owned(),
+    ))
+}
+
+fn parse_duckduckgo_html(body: &str, max_results: u32) -> Result<Vec<serde_json::Value>, String> {
+    if body.contains("anomaly-modal") || body.contains("Unfortunately, bots use DuckDuckGo too") {
+        return Err("DuckDuckGo search was blocked by an anti-bot challenge".to_owned());
+    }
+
+    let title_marker = r#"<a rel="nofollow" class="result__a" href=""#;
+    let snippet_marker = r#"<a class="result__snippet" href=""#;
+    let mut results = Vec::new();
+    let mut cursor = 0;
+    let limit = max_results.max(1);
+
+    while results.len() < limit as usize {
+        let Some(relative_start) = body[cursor..].find(title_marker) else {
+            break;
+        };
+        let title_start = cursor + relative_start;
+        let next_title_start = body[title_start + title_marker.len()..]
+            .find(title_marker)
+            .map(|offset| title_start + title_marker.len() + offset)
+            .unwrap_or(body.len());
+        let block = &body[title_start..next_title_start];
+        let Some((href, title)) = extract_anchor_value(block, title_marker) else {
+            cursor = title_start + title_marker.len();
+            continue;
+        };
+        let snippet = extract_anchor_value(block, snippet_marker)
+            .map(|(_, value)| strip_html_tags(&value))
+            .unwrap_or_default();
+
+        results.push(serde_json::json!({
+            "title": strip_html_tags(&title),
+            "url": decode_duckduckgo_result_url(&href),
+            "snippet": snippet,
+        }));
+        cursor = next_title_start;
+    }
+
+    if results.is_empty() {
+        return Err("DuckDuckGo returned no web results".to_owned());
+    }
+
+    Ok(results)
+}
+
+async fn duckduckgo_search(
+    client: &Client,
+    query: &str,
+    max_results: u32,
+) -> Result<serde_json::Value, String> {
+    let response = client
+        .get("https://html.duckduckgo.com/html/")
+        .query(&[("q", query)])
+        .header("User-Agent", "Mozilla/5.0 (TenshiLLM)")
+        .send()
+        .await
+        .map_err(|error| format!("DuckDuckGo request failed: {error}"))?;
+    let status = response.status();
+    let body = response
+        .text()
+        .await
+        .map_err(|error| format!("Failed to read DuckDuckGo response: {error}"))?;
+
+    if !status.is_success() {
+        return Err(format!(
+            "DuckDuckGo search failed ({status}): {}",
+            if body.trim().is_empty() {
+                "no response body"
+            } else {
+                body.as_str()
+            }
+        ));
+    }
+
+    Ok(serde_json::json!({
+        "provider": "duckduckgo",
+        "query": query,
+        "results": parse_duckduckgo_html(&body, max_results)?,
+    }))
+}
+
 async fn initialize_mcp_session(
     client: &Client,
     server_url: &str,
@@ -316,7 +466,7 @@ async fn send_chat_request(
     request: ChatRequest,
 ) -> Result<String, String> {
     let client = reqwest::Client::new();
-    let url = format!("{}/chat/completions", base_url);
+    let url = chat_completions_url(&base_url);
 
     let response = client
         .post(&url)
@@ -343,7 +493,7 @@ async fn send_chat_request(
 #[tauri::command]
 async fn test_provider_connection(base_url: String, api_key: String) -> Result<bool, String> {
     let client = reqwest::Client::new();
-    let url = format!("{}/models", base_url);
+    let url = format!("{}/models", provider_api_base_url(&base_url));
 
     let response = client
         .get(&url)
@@ -535,20 +685,7 @@ async fn web_search(
                 .map_err(|e| format!("Brave request failed: {}", e))?;
             read_json_response(response, "Brave").await?
         }
-        "duckduckgo" => {
-            let response = client
-                .get("https://api.duckduckgo.com/")
-                .query(&[
-                    ("q", query.as_str()),
-                    ("format", "json"),
-                    ("no_html", "1"),
-                    ("no_redirect", "1"),
-                ])
-                .send()
-                .await
-                .map_err(|e| format!("DuckDuckGo request failed: {}", e))?;
-            read_json_response(response, "DuckDuckGo").await?
-        }
+        "duckduckgo" => duckduckgo_search(&client, &query, max_results).await?,
         _ => {
             return Err(format!("Unsupported search provider: {}", provider));
         }
@@ -631,5 +768,42 @@ mod tests {
 
         let error = find_mcp_response(&messages, "request-1").expect_err("error should propagate");
         assert!(error.contains("Invalid arguments"));
+    }
+
+    #[test]
+    fn accepts_completion_endpoint_in_provider_url() {
+        assert_eq!(
+            chat_completions_url("https://example.com/v1"),
+            "https://example.com/v1/chat/completions"
+        );
+        assert_eq!(
+            chat_completions_url("https://example.com/v1/chat/completions/"),
+            "https://example.com/v1/chat/completions"
+        );
+    }
+
+    #[test]
+    fn parses_duckduckgo_html_results() {
+        let body = concat!(
+            r#"<a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fdocs&amp;rut=one">Example &amp; docs</a>"#,
+            r#"<a class="result__snippet" href="x">A useful &amp; snippet.</a>"#,
+            r#"<a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org&amp;rut=two">Example org</a>"#,
+            r#"<a class="result__snippet" href="x">Second result.</a>"#,
+        );
+
+        let results = parse_duckduckgo_html(body, 2).expect("results should parse");
+
+        assert_eq!(results[0]["title"], "Example & docs");
+        assert_eq!(results[0]["url"], "https://example.com/docs");
+        assert_eq!(results[0]["snippet"], "A useful & snippet.");
+        assert_eq!(results[1]["url"], "https://example.org");
+    }
+
+    #[test]
+    fn reports_duckduckgo_anti_bot_challenges() {
+        let error = parse_duckduckgo_html("Unfortunately, bots use DuckDuckGo too", 5)
+            .expect_err("anti-bot response should fail clearly");
+
+        assert!(error.contains("anti-bot challenge"));
     }
 }
