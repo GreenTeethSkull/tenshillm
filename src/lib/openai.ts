@@ -9,18 +9,17 @@ export function normalizeInlineThinking(
   content: string,
   reasoning: string
 ): NormalizedCompletionContent {
-  const inlineReasoning: string[] = [];
-  const normalizedContent = content.replace(
-    /<think>([\s\S]*?)(?:<\/think>|$)/gi,
-    (_match, value: string) => {
-      if (value.trim()) inlineReasoning.push(value.trim());
-      return '';
-    }
-  );
+  // Only treat a complete thinking block at the beginning as provider metadata.
+  // Later tags may be intentional model output and must remain untouched.
+  const initialThinking = /^\s*<think>([\s\S]*?)<\/think>/i.exec(content);
+  const inlineReasoning = initialThinking?.[1]?.trim() || '';
+  const normalizedContent = initialThinking
+    ? content.slice(initialThinking[0].length)
+    : content;
 
   return {
     content: normalizedContent.trim(),
-    reasoning: [reasoning.trim(), ...inlineReasoning].filter(Boolean).join('\n\n'),
+    reasoning: [reasoning.trim(), inlineReasoning].filter(Boolean).join('\n\n'),
   };
 }
 

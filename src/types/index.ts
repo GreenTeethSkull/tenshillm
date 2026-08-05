@@ -63,6 +63,7 @@ export interface Message {
   conversationId: string;
   role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
+  reasoning?: string;
   attachments: Attachment[];
   toolCalls: ToolCall[];
   toolResults: ToolResult[];

@@ -10,11 +10,51 @@ interface Props {
   isStreaming?: boolean;
 }
 
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        pre: ({ children }) => <pre className="overflow-x-auto">{children}</pre>,
+        code: ({ className, children, ...props }) => {
+          const isInline = !className;
+          if (isInline) {
+            return <code {...props}>{children}</code>;
+          }
+          return (
+            <code className={className} {...props}>
+              {children}
+            </code>
+          );
+        },
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
+function ThinkingSection({ reasoning }: { reasoning: string }) {
+  return (
+    <details className="mb-3 rounded-xl border border-border bg-muted-bg/40">
+      <summary className="cursor-pointer select-none px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+        Thinking
+      </summary>
+      <div className="border-t border-border px-4 py-3 text-muted-foreground">
+        <div className="markdown-body text-sm">
+          <MarkdownContent content={reasoning} />
+        </div>
+      </div>
+    </details>
+  );
+}
+
 export function MessageBubble({ message, isStreaming }: Props) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
   const isError = message.role === 'assistant' && message.content.startsWith('Error:');
+  const reasoning = message.reasoning?.trim() || '';
 
   const handleCopy = async () => {
     try {
@@ -33,12 +73,17 @@ export function MessageBubble({ message, isStreaming }: Props) {
           <Wrench size={16} aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1 pt-1">
-          <div className="text-[11px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-            Tool Result
-          </div>
-          <pre className="bg-code-bg text-foreground/80 text-xs p-4 rounded-xl overflow-x-auto leading-relaxed font-mono border border-border">
-            {message.content}
-          </pre>
+          <details>
+            <summary className="cursor-pointer select-none text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <span>Tool Result</span>
+              {message.toolResults.some((result) => result.isError) && (
+                <span className="ml-2 text-destructive">(Error)</span>
+              )}
+            </summary>
+            <pre className="bg-code-bg text-foreground/80 text-xs p-4 rounded-xl overflow-x-auto leading-relaxed font-mono border border-border mt-2">
+              {message.content}
+            </pre>
+          </details>
         </div>
       </article>
     );
@@ -124,40 +169,27 @@ export function MessageBubble({ message, isStreaming }: Props) {
           </div>
         )}
 
-        {isStreaming && !message.content ? (
+        {isStreaming && !message.content && !reasoning ? (
           <div className="thinking-dots py-1" aria-label="Assistant is thinking">
             <span />
             <span />
             <span />
           </div>
         ) : (
-          <div
-            className={cn(
-              'markdown-body',
-              isError &&
-                'rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive'
+          <>
+            {reasoning && <ThinkingSection reasoning={reasoning} />}
+            {message.content && (
+              <div
+                className={cn(
+                  'markdown-body',
+                  isError &&
+                    'rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive'
+                )}
+              >
+                <MarkdownContent content={message.content} />
+              </div>
             )}
-          >
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                pre: ({ children }) => <pre className="overflow-x-auto">{children}</pre>,
-                code: ({ className, children, ...props }) => {
-                  const isInline = !className;
-                  if (isInline) {
-                    return <code {...props}>{children}</code>;
-                  }
-                  return (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-          </div>
+          </>
         )}
 
         {isStreaming && message.content && (

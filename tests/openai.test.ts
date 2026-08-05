@@ -137,10 +137,36 @@ describe('completion content normalization', () => {
     });
   });
 
-  test('handles an unfinished think block while streaming', () => {
+  test('keeps an unfinished initial think block visible while streaming', () => {
     expect(normalizeInlineThinking('<think>still thinking', '')).toEqual({
-      content: '',
-      reasoning: 'still thinking',
+      content: '<think>still thinking',
+      reasoning: '',
+    });
+  });
+
+  test('only extracts a paired think block at the beginning', () => {
+    expect(
+      normalizeInlineThinking(
+        '\n  <think>private reasoning</think>\nAnswer with <think>literal markup</think>',
+        ''
+      )
+    ).toEqual({
+      content: 'Answer with <think>literal markup</think>',
+      reasoning: 'private reasoning',
+    });
+  });
+
+  test('leaves a later think block untouched', () => {
+    expect(normalizeInlineThinking('Answer <think>literal markup</think>', '')).toEqual({
+      content: 'Answer <think>literal markup</think>',
+      reasoning: '',
+    });
+  });
+
+  test('preserves provider reasoning alongside a clean answer', () => {
+    expect(normalizeInlineThinking('Final answer', 'Provider reasoning')).toEqual({
+      content: 'Final answer',
+      reasoning: 'Provider reasoning',
     });
   });
 });

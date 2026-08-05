@@ -32,18 +32,12 @@ interface StreamedCompletion {
 }
 
 interface StreamUpdate {
-  displayContent: string;
+  content: string;
+  reasoning: string;
   toolCalls: ToolCall[];
 }
 
 const EMPTY_MESSAGES: Message[] = [];
-
-function buildDisplayContent(content: string, reasoning: string): string {
-  const normalized = normalizeInlineThinking(content, reasoning);
-  if (!normalized.reasoning) return normalized.content;
-
-  return `<details><summary>Thinking</summary>\n\n${normalized.reasoning}\n\n</details>\n\n${normalized.content}`;
-}
 
 function isAbortError(error: unknown, signal: AbortSignal): boolean {
   if (signal.aborted) return true;
@@ -105,7 +99,8 @@ async function requestCompletion(
       message?.reasoning_content || ''
     );
     onUpdate({
-      displayContent: buildDisplayContent(normalized.content, normalized.reasoning),
+      content: normalized.content,
+      reasoning: normalized.reasoning,
       toolCalls,
     });
     return { ...normalized, toolCalls };
@@ -137,8 +132,10 @@ async function requestCompletion(
       toolCalls.set(toolCallDelta.index, current);
     }
 
+    const normalized = normalizeInlineThinking(content, reasoning);
     onUpdate({
-      displayContent: buildDisplayContent(content, reasoning),
+      content: normalized.content,
+      reasoning: normalized.reasoning,
       toolCalls: Array.from(toolCalls.values()),
     });
   });
@@ -467,10 +464,11 @@ export function ChatView() {
           provider.apiKey,
           payload,
           signal,
-          ({ displayContent, toolCalls }) => {
-            setStreamingContent(displayContent);
+          ({ content, reasoning, toolCalls }) => {
+            setStreamingContent(content);
             updateMessage(activeConversationId, activeAssistantId, {
-              content: displayContent,
+              content,
+              reasoning,
               toolCalls,
             });
           }
@@ -480,12 +478,14 @@ export function ChatView() {
           ...assistantMessage,
           id: activeAssistantId,
           content: completion.content,
+          reasoning: completion.reasoning,
           toolCalls: completion.toolCalls,
           timestamp: Date.now(),
         };
         conversationMessages = [...conversationMessages, assistantForHistory];
         updateMessage(activeConversationId, activeAssistantId, {
-          content: buildDisplayContent(completion.content, completion.reasoning),
+          content: completion.content,
+          reasoning: completion.reasoning,
           toolCalls: completion.toolCalls,
         });
 
