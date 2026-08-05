@@ -344,6 +344,7 @@ export function ChatView() {
     searchConfig,
     agentSkills,
     mcpServers,
+    defaultSystemPrompt,
     updateMcpServer,
   } = useSettingsStore();
 
@@ -385,7 +386,7 @@ export function ChatView() {
       updateConversation(activeConversationId, { title, updatedAt: Date.now() });
     }
 
-    let systemPrompt = activeConversation.systemPrompt || '';
+    let systemPrompt = activeConversation.systemPrompt || defaultSystemPrompt;
     const enabledSkills = agentSkills.filter((s) => s.isEnabled);
     if (enabledSkills.length > 0) {
       const skillsContext = enabledSkills

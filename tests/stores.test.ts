@@ -111,6 +111,37 @@ describe('search settings', () => {
     storage.delete('tenshillm-settings');
   });
 
+  test('migrates the old keyless Tavily default to DuckDuckGo', () => {
+    storage.set(
+      'tenshillm-settings',
+      JSON.stringify({
+        searchConfig: {
+          enabled: true,
+          provider: 'tavily',
+          apiKey: '',
+          maxResults: 7,
+          region: 'es-PE',
+        },
+      })
+    );
+
+    useSettingsStore.getState().loadSettings();
+    const config = useSettingsStore.getState().searchConfig;
+
+    expect(config).toEqual({
+      enabled: true,
+      provider: 'duckduckgo',
+      apiKey: '',
+      maxResults: 7,
+      region: 'es-PE',
+    });
+    expect(JSON.parse(storage.get('tenshillm-settings') || '{}').searchConfig.provider).toBe(
+      'duckduckgo'
+    );
+
+    storage.delete('tenshillm-settings');
+  });
+
   test('delete-all reset removes settings and restores defaults', () => {
     useSettingsStore.setState({
       providers: [{ id: 'provider-1' } as never],

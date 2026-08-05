@@ -24,7 +24,12 @@ export function Sidebar() {
     archiveConversation,
   } = useChatStore();
 
-  const { providers, activeProviderId, activeModelId } = useSettingsStore();
+  const {
+    providers,
+    activeProviderId,
+    activeModelId,
+    defaultSystemPrompt,
+  } = useSettingsStore();
 
   const activeProvider = providers.find((p) => p.id === activeProviderId);
   const activeModel = activeProvider?.models.find((m) => m.id === activeModelId);
@@ -35,7 +40,7 @@ export function Sidebar() {
       setSidebarOpen(false);
       return;
     }
-    createNewConversation(activeProviderId, activeModelId);
+    createNewConversation(activeProviderId, activeModelId, defaultSystemPrompt);
     if (window.innerWidth < 1024) setSidebarOpen(false);
   };
 

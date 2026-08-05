@@ -7,6 +7,7 @@ This runbook is the repeatable smoke/integration test for the local Tauri app. I
 - Bun and the project dependencies are installed.
 - A Tauri desktop runtime is available for provider, MCP, and web-search commands.
 - Use an isolated test profile or be prepared to run Cleanup at the end.
+- The vision test asset is `docs/testing/greenskull.png`; refer to it as `@greenskull.png` when attaching it in the chat.
 - Use the local `.env` file as the source of test data. The application does not load it automatically; copy values into the Settings forms only when a step asks for them.
 - Never log full API keys, authorization headers, MCP responses containing secrets, or model request payloads.
 
@@ -23,6 +24,7 @@ Use a dotenv-aware loader or shell session to read the variables. Do not paste d
 | Context7 MCP | `TENSILLM_CONTEXT7_NAME`, `TENSILLM_CONTEXT7_URL`, `TENSILLM_CONTEXT7_HEADER_NAME`, `TENSILLM_CONTEXT7_API_KEY` | Headers JSON: `{ "<header name>": "<key>" }` |
 | Dynatrace MCP | `TENSILLM_DYNATRACE_NAME`, `TENSILLM_DYNATRACE_URL`, `TENSILLM_DYNATRACE_AUTHORIZATION` | Headers JSON: `{ "Authorization": "<authorization>" }` |
 | Search | `TENSILLM_SEARCH_PROVIDER`, `TENSILLM_SEARCH_API_KEY`, `TENSILLM_SEARCH_MAX_RESULTS`, `TENSILLM_SEARCH_QUERY` | `Settings > Search`; leave the DuckDuckGo key empty |
+| Vision image | `docs/testing/greenskull.png` | Attach as `@greenskull.png` in a vision-enabled chat |
 | Hello skill | `TENSILLM_HELLO_WORLD_NAME`, `TENSILLM_HELLO_WORLD_DESCRIPTION`, `TENSILLM_HELLO_WORLD_CONTENT_B64`, `TENSILLM_HELLO_WORLD_QUERY` | Decode content and add under `Settings > Skills` |
 | Slugify skill | `TENSILLM_SLUGIFY_NAME`, `TENSILLM_SLUGIFY_DESCRIPTION`, `TENSILLM_SLUGIFY_CONTENT_B64`, `TENSILLM_SLUGIFY_QUERY` | Decode content and add under `Settings > Skills` |
 | System prompt | `TENSILLM_SYSTEM_PROMPT_B64`, `TENSILLM_SYSTEM_PROMPT_QUERY` | Decode content and paste into `Default System Prompt` |
@@ -123,7 +125,22 @@ Expected:
 
 Note: the app uses DuckDuckGo's HTML results endpoint because the public Instant Answer endpoint does not reliably return web results for arbitrary pages. If DuckDuckGo returns an anti-bot challenge, record the observed HTTP status/category and do not silently fall back to another search engine.
 
-### 8. Chats and persistence
+### 8. Vision and image upload
+
+1. Confirm the selected model has `Vision` enabled in `Settings > Providers`.
+2. Start a new chat and attach `docs/testing/greenskull.png` (`@greenskull.png`).
+3. Ask exactly: `Describe esta imagen en una frase.`
+4. Verify the image preview is visible before sending.
+5. Verify the sent user message retains the image and the model returns a description of the visible green skull.
+
+Expected:
+
+- The image file is accepted and appears in the composer preview.
+- The request contains a multimodal user content array with the text and a PNG data URL.
+- The model reads the image instead of reporting that no image was provided.
+- DevTools and the provider response show no `invalid image detail: auto` error.
+
+### 9. Chats and persistence
 
 1. Create at least two chats.
 2. Send a distinct short message in each.
@@ -132,7 +149,7 @@ Note: the app uses DuckDuckGo's HTML results endpoint because the public Instant
 
 Expected: titles, active selection, and messages persist without cross-chat leakage.
 
-### 9. Cleanup
+### 10. Cleanup
 
 1. Open `Cleanup`.
 2. Verify active chat and message counts.
@@ -142,13 +159,33 @@ Expected: titles, active selection, and messages persist without cross-chat leak
 
 Expected: cleanup is two-step, counts update, the persisted chat and settings stores are empty, and the app defaults are restored. Do not delete unrelated local application data outside the app.
 
-### 10. UI and diagnostics
+### 11. UI and diagnostics
 
 - Run at desktop width and a narrow mobile-sized viewport.
 - Check keyboard focus, Escape/backdrop close behavior, and no horizontal overflow.
 - Inspect browser console for uncaught exceptions.
 - Inspect failed network requests, excluding redacted credential values.
 - Capture screenshots only after confirming no secrets are visible.
+
+### 12. Close the local runtime
+
+After all tests, close the Tauri window and stop the development process that listens on port `1420`.
+
+1. Identify the listener created for this test run:
+
+   ```bash
+   lsof -nP -iTCP:1420 -sTCP:LISTEN
+   ```
+
+2. Stop its PID, then verify that no process remains on the port:
+
+   ```bash
+   PIDS=$(lsof -tiTCP:1420 -sTCP:LISTEN)
+   if [ -n "$PIDS" ]; then kill $PIDS; fi
+   lsof -nP -iTCP:1420 -sTCP:LISTEN
+   ```
+
+Expected: the final command returns no listener for port `1420`. Do not kill an unrelated process; if the PID is not the process started for this run, stop and record the exception instead.
 
 ## Result Template
 
@@ -166,9 +203,11 @@ hello-world skill: PASS/FAIL
 slugify skill: PASS/FAIL
 System prompt: PASS/FAIL
 DuckDuckGo search: PASS/FAIL (HTTP/category only)
+Vision/image upload with greenskull.png: PASS/FAIL
 Chat creation/persistence: PASS/FAIL
 Cleanup: PASS/FAIL
 Responsive/accessibility/console: PASS/FAIL
+Port 1420 closed after testing: PASS/FAIL
 
 Notes:
 ```

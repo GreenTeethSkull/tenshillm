@@ -43,6 +43,18 @@ const DEFAULT_SEARCH_CONFIG: SearchConfig = {
   region: 'es-ES',
 };
 
+function normalizeSearchConfig(value: Partial<SearchConfig> | undefined): SearchConfig {
+  const config = { ...DEFAULT_SEARCH_CONFIG, ...(value || {}) };
+  const apiKey = typeof config.apiKey === 'string' ? config.apiKey : '';
+
+  // Migrate the previous default, which could never search without a Tavily key.
+  if (config.provider === 'tavily' && !apiKey.trim()) {
+    return { ...config, provider: 'duckduckgo', apiKey: '' };
+  }
+
+  return { ...config, apiKey };
+}
+
 function persistSettings(state: SettingsState): void {
   localStorage.setItem(
     'tenshillm-settings',
@@ -141,6 +153,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const raw = localStorage.getItem('tenshillm-settings');
       if (raw) {
         const data = JSON.parse(raw);
+        const rawSearchConfig =
+          data.searchConfig && typeof data.searchConfig === 'object'
+            ? (data.searchConfig as Partial<SearchConfig>)
+            : undefined;
+        const searchConfig = normalizeSearchConfig(rawSearchConfig);
+        const searchConfigMigrated =
+          rawSearchConfig?.provider === 'tavily' &&
+          !(typeof rawSearchConfig.apiKey === 'string' && rawSearchConfig.apiKey.trim());
         const mcpServers = Array.isArray(data.mcpServers)
           ? data.mcpServers.map((server: McpServer) => ({
               ...server,
@@ -151,7 +171,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
               protocolVersion: undefined,
             }))
           : [];
-        set({ ...data, mcpServers });
+        set({ ...data, searchConfig, mcpServers });
+        if (searchConfigMigrated) persistSettings(get());
       }
     } catch {
       // ignore

@@ -118,7 +118,7 @@ describe('OpenAI-compatible payloads', () => {
       { type: 'text', text: 'Hello' },
       {
         type: 'image_url',
-        image_url: { url: 'data:image/png;base64,YWJj', detail: 'auto' },
+        image_url: { url: 'data:image/png;base64,YWJj' },
       },
     ]);
   });

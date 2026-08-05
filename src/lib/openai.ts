@@ -28,7 +28,7 @@ export interface ChatCompletionRequest {
   model: string;
   messages: Array<{
     role: string;
-    content: string | Array<{ type: string; text?: string; image_url?: { url: string; detail: string } }>;
+    content: string | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }>;
     tool_calls?: Array<{ id: string; type: string; function: { name: string; arguments: string } }>;
     tool_call_id?: string;
   }>;
@@ -60,7 +60,7 @@ export function buildChatPayload(
 
   for (const msg of messages) {
     if (msg.role === 'user' && msg.attachments.length > 0) {
-      const content: Array<{ type: string; text?: string; image_url?: { url: string; detail: string } }> = [];
+      const content: Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }> = [];
       if (msg.content) {
         content.push({ type: 'text', text: msg.content });
       }
@@ -68,7 +68,9 @@ export function buildChatPayload(
         if (att.mimeType.startsWith('image/')) {
           content.push({
             type: 'image_url',
-            image_url: { url: `data:${att.mimeType};base64,${att.base64Data}`, detail: 'auto' },
+            // Omit the optional detail field because some OpenAI-compatible providers reject
+            // the OpenAI-specific "auto" value while accepting the standard data URL.
+            image_url: { url: `data:${att.mimeType};base64,${att.base64Data}` },
           });
         }
       }
