@@ -58,12 +58,15 @@ export interface Conversation {
   isArchived: boolean;
 }
 
+export type CompletionStatus = 'streaming' | 'complete' | 'aborted' | 'error';
+
 export interface Message {
   id: string;
   conversationId: string;
   role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
   reasoning?: string;
+  completionStatus?: CompletionStatus;
   attachments: Attachment[];
   toolCalls: ToolCall[];
   toolResults: ToolResult[];

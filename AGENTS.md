@@ -136,7 +136,9 @@ src-tauri/
 **chatStore.ts**
 - `conversations`: Array of conversation metadata
 - `messages`: Record<string, Message[]> keyed by conversation ID
-- `isStreaming` / `streamingContent`: Streaming state
+- `isStreaming`: Request-level streaming state
+- Assistant messages use optional `completionStatus` to distinguish streaming,
+  completed, aborted, and failed responses
 - `sidebarOpen` / `settingsOpen` / `cleanupOpen`: UI panel state
 
 ## Component Patterns

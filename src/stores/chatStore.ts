@@ -2,13 +2,13 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import type { Conversation, Message } from '../types';
+import { migratePersistedChatState, type PersistedChatState } from '../lib/chatHistory';
 
 interface ChatState {
   conversations: Conversation[];
   activeConversationId: string | null;
   messages: Record<string, Message[]>;
   isStreaming: boolean;
-  streamingContent: string;
   sidebarOpen: boolean;
   settingsOpen: boolean;
   cleanupOpen: boolean;
@@ -24,7 +24,6 @@ interface ChatState {
   addMessage: (conversationId: string, message: Message) => void;
   updateMessage: (conversationId: string, messageId: string, updates: Partial<Message>) => void;
   setIsStreaming: (streaming: boolean) => void;
-  setStreamingContent: (content: string) => void;
   setSidebarOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setCleanupOpen: (open: boolean) => void;
@@ -43,7 +42,6 @@ export const useChatStore = create<ChatState>()(
       activeConversationId: null,
       messages: {},
       isStreaming: false,
-      streamingContent: '',
       sidebarOpen: DEFAULT_SIDEBAR_OPEN,
       settingsOpen: false,
       cleanupOpen: false,
@@ -97,7 +95,6 @@ export const useChatStore = create<ChatState>()(
           },
         })),
       setIsStreaming: (streaming) => set({ isStreaming: streaming }),
-      setStreamingContent: (content) => set({ streamingContent: content }),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       setSettingsOpen: (open) => set({ settingsOpen: open }),
       setCleanupOpen: (open) => set({ cleanupOpen: open }),
@@ -138,7 +135,9 @@ export const useChatStore = create<ChatState>()(
     {
       name: 'tenshillm-chat',
       storage: createJSONStorage(() => localStorage),
-      version: 1,
+      version: 2,
+      migrate: (persistedState, version) =>
+        migratePersistedChatState(persistedState as PersistedChatState, version),
       partialize: (state) => ({
         conversations: state.conversations,
         activeConversationId: state.activeConversationId,

@@ -94,6 +94,60 @@ describe('OpenAI-compatible payloads', () => {
     expect(payload.tools?.[0].function.parameters).toEqual(echoTool.inputSchema);
   });
 
+  test('excludes incomplete assistant turns and orphaned tool results', () => {
+    const payload = buildChatPayload(
+      [
+        message(),
+        message({
+          id: 'streaming-1',
+          role: 'assistant',
+          content: 'Partial answer',
+          completionStatus: 'streaming',
+        }),
+        message({
+          id: 'aborted-1',
+          role: 'assistant',
+          content: '',
+          completionStatus: 'aborted',
+          toolCalls: [{ id: 'aborted-call', name: 'echo', arguments: '{}' }],
+        }),
+        message({
+          id: 'orphaned-tool-1',
+          role: 'tool',
+          content: 'Should not be sent',
+          toolResults: [{ toolCallId: 'aborted-call', content: 'Should not be sent', isError: false }],
+        }),
+        message({
+          id: 'error-1',
+          role: 'assistant',
+          content: 'Error: provider failed',
+          completionStatus: 'error',
+        }),
+        message({
+          id: 'incomplete-tool-1',
+          role: 'assistant',
+          content: '',
+          completionStatus: 'complete',
+          toolCalls: [{ id: 'missing-result-call', name: 'echo', arguments: '{}' }],
+        }),
+        message({
+          id: 'complete-1',
+          role: 'assistant',
+          content: 'Final answer',
+          completionStatus: 'complete',
+        }),
+      ],
+      'demo-model',
+      '',
+      []
+    );
+
+    expect(payload.messages).toEqual([
+      { role: 'user', content: 'Hello' },
+      { role: 'assistant', content: 'Final answer' },
+    ]);
+  });
+
   test('encodes image attachments as multimodal content', () => {
     const payload = buildChatPayload(
       [

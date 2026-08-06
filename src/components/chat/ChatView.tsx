@@ -325,13 +325,11 @@ export function ChatView() {
     activeConversationId,
     messages,
     isStreaming,
-    streamingContent,
     sidebarOpen,
     setSidebarOpen,
     setSettingsOpen,
     addMessage,
     setIsStreaming,
-    setStreamingContent,
     updateMessage,
     updateConversation,
   } = useChatStore();
@@ -359,7 +357,7 @@ export function ChatView() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [currentMessages, streamingContent]);
+  }, [currentMessages]);
 
   const handleSend = async (content: string, attachments: Attachment[] = []) => {
     if (!activeConversationId || !activeConversation || !provider || !model) return;
@@ -400,13 +398,13 @@ export function ChatView() {
       attachments: [],
       toolCalls: [],
       toolResults: [],
+      completionStatus: 'streaming',
       timestamp: Date.now(),
       tokenUsage: null,
     };
 
     addMessage(activeConversationId, assistantMessage);
     setIsStreaming(true);
-    setStreamingContent('');
 
     let activeAssistantId = assistantMessage.id;
     try {
@@ -465,7 +463,6 @@ export function ChatView() {
           payload,
           signal,
           ({ content, reasoning, toolCalls }) => {
-            setStreamingContent(content);
             updateMessage(activeConversationId, activeAssistantId, {
               content,
               reasoning,
@@ -480,6 +477,7 @@ export function ChatView() {
           content: completion.content,
           reasoning: completion.reasoning,
           toolCalls: completion.toolCalls,
+          completionStatus: 'complete',
           timestamp: Date.now(),
         };
         conversationMessages = [...conversationMessages, assistantForHistory];
@@ -487,6 +485,7 @@ export function ChatView() {
           content: completion.content,
           reasoning: completion.reasoning,
           toolCalls: completion.toolCalls,
+          completionStatus: 'complete',
         });
 
         if (completion.toolCalls.length === 0) break;
@@ -527,23 +526,28 @@ export function ChatView() {
           id: nanoid(),
           content: '',
           toolCalls: [],
+          completionStatus: 'streaming',
           timestamp: Date.now(),
         };
         activeAssistantId = nextAssistantMessage.id;
         addMessage(activeConversationId, nextAssistantMessage);
-        setStreamingContent('');
       }
     } catch (err: unknown) {
       const signal = abortRef.current?.signal;
-      if (signal && isAbortError(err, signal)) return;
+      if (signal && isAbortError(err, signal)) {
+        updateMessage(activeConversationId, activeAssistantId, {
+          completionStatus: 'aborted',
+        });
+        return;
+      }
       const errorMsg = err instanceof Error ? err.message : `Unknown error: ${String(err)}`;
       console.error('[TenshiLLM] Request error:', err);
       updateMessage(activeConversationId, activeAssistantId, {
         content: `Error: ${describeRuntimeError(errorMsg)}`,
+        completionStatus: 'error',
       });
     } finally {
       setIsStreaming(false);
-      setStreamingContent('');
       abortRef.current = null;
     }
   };
@@ -655,29 +659,14 @@ export function ChatView() {
           )}
           <div className="space-y-8">
             {currentMessages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                isStreaming={
+                  isStreaming && msg.role === 'assistant' && msg.completionStatus === 'streaming'
+                }
+              />
             ))}
-            {isStreaming &&
-              streamingContent &&
-              activeConversationId &&
-              !currentMessages.some(
-                (m) => m.role === 'assistant' && m.content === streamingContent
-              ) && (
-                <MessageBubble
-                  message={{
-                    id: 'streaming',
-                    conversationId: activeConversationId,
-                    role: 'assistant',
-                    content: streamingContent,
-                    attachments: [],
-                    toolCalls: [],
-                    toolResults: [],
-                    timestamp: Date.now(),
-                    tokenUsage: null,
-                  }}
-                  isStreaming
-                />
-              )}
           </div>
         </div>
       </div>

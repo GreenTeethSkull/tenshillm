@@ -1,4 +1,5 @@
 import type { Message, McpTool } from '../types';
+import { isCompleteAssistantMessage } from './chatHistory';
 
 export interface NormalizedCompletionContent {
   content: string;
@@ -44,6 +45,30 @@ export function chatCompletionsEndpoint(baseUrl: string): string {
     : `${normalizedUrl}/chat/completions`;
 }
 
+function getCompleteToolCallIds(messages: Message[]): Set<string> {
+  const completeIds = new Set<string>();
+
+  for (let index = 0; index < messages.length; index += 1) {
+    const assistant = messages[index];
+    if (!assistant || assistant.role !== 'assistant' || !isCompleteAssistantMessage(assistant)) continue;
+    if (assistant.toolCalls.length === 0) continue;
+
+    const resultIds = new Set<string>();
+    for (let nextIndex = index + 1; nextIndex < messages.length; nextIndex += 1) {
+      const nextMessage = messages[nextIndex];
+      if (nextMessage?.role !== 'tool') break;
+      const toolResult = nextMessage.toolResults[0];
+      if (toolResult) resultIds.add(toolResult.toolCallId);
+    }
+
+    if (assistant.toolCalls.every((toolCall) => resultIds.has(toolCall.id))) {
+      assistant.toolCalls.forEach((toolCall) => completeIds.add(toolCall.id));
+    }
+  }
+
+  return completeIds;
+}
+
 export function buildChatPayload(
   messages: Message[],
   model: string,
@@ -52,12 +77,15 @@ export function buildChatPayload(
   maxTokens: number = 4096
 ): ChatCompletionRequest {
   const apiMessages: ChatCompletionRequest['messages'] = [];
+  const validToolCallIds = getCompleteToolCallIds(messages);
 
   if (systemPrompt) {
     apiMessages.push({ role: 'system', content: systemPrompt });
   }
 
   for (const msg of messages) {
+    if (!isCompleteAssistantMessage(msg)) continue;
+
     if (msg.role === 'user' && msg.attachments.length > 0) {
       const content: Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }> = [];
       if (msg.content) {
@@ -76,7 +104,7 @@ export function buildChatPayload(
       apiMessages.push({ role: msg.role, content });
     } else if (msg.role === 'tool') {
       const toolResult = msg.toolResults[0];
-      if (toolResult) {
+      if (toolResult && validToolCallIds.has(toolResult.toolCallId)) {
         apiMessages.push({
           role: 'tool',
           content: toolResult.content,
@@ -84,6 +112,7 @@ export function buildChatPayload(
         });
       }
     } else if (msg.role === 'assistant' && msg.toolCalls.length > 0) {
+      if (!msg.toolCalls.every((toolCall) => validToolCallIds.has(toolCall.id))) continue;
       apiMessages.push({
         role: 'assistant',
         content: msg.content || '',
