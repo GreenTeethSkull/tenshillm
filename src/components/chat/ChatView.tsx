@@ -328,6 +328,7 @@ export function ChatView() {
     sidebarOpen,
     setSidebarOpen,
     setSettingsOpen,
+    createNewConversation,
     addMessage,
     setIsStreaming,
     updateMessage,
@@ -336,6 +337,8 @@ export function ChatView() {
 
   const {
     providers,
+    activeProviderId,
+    activeModelId,
     searchConfig,
     agentSkills,
     mcpServers,
@@ -352,6 +355,9 @@ export function ChatView() {
     : EMPTY_MESSAGES;
   const provider = providers.find((p) => p.id === activeConversation?.providerId);
   const model = provider?.models.find((m) => m.id === activeConversation?.modelId);
+  const configuredProvider = providers.find((p) => p.id === activeProviderId);
+  const configuredModel = configuredProvider?.models.find((m) => m.id === activeModelId);
+  const canStartConversation = Boolean(configuredProvider && configuredModel);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -556,6 +562,15 @@ export function ChatView() {
     abortRef.current?.abort();
   };
 
+  const handleStartChat = () => {
+    if (!activeProviderId || !activeModelId || !configuredProvider || !configuredModel) {
+      setSettingsOpen(true);
+      return;
+    }
+
+    createNewConversation(activeProviderId, activeModelId, defaultSystemPrompt);
+  };
+
   if (!activeConversation) {
     return (
       <div className="flex-1 flex flex-col min-h-dvh">
@@ -586,22 +601,40 @@ export function ChatView() {
           <div className="grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary mb-5">
             <Cpu size={32} aria-hidden="true" />
           </div>
-          <h2 className="text-xl font-semibold mb-3 tracking-tight">
-            Welcome to TenshiLLM
-          </h2>
-          <p className="text-sm leading-relaxed text-pretty max-w-[320px] mb-8 text-muted-foreground">
-            Connect any OpenAI-compatible provider and start chatting. Your data stays on this device — no cloud, no tracking.
-          </p>
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:opacity-90 active:scale-[0.98] transition-[background-color,border-color,color,opacity,box-shadow,transform]"
-          >
-            Configure your first provider
-          </button>
-          <p className="text-xs text-muted-foreground mt-4">
-            Tip: open the sidebar with the menu icon to start a new chat.
-          </p>
+          {canStartConversation ? (
+            <>
+              <h2 className="text-xl font-semibold mb-3 tracking-tight">Ready when you are</h2>
+              <p className="text-sm leading-relaxed text-pretty max-w-[320px] mb-8 text-muted-foreground">
+                Start a new conversation with your active model.
+              </p>
+              <button
+                type="button"
+                onClick={handleStartChat}
+                className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:opacity-90 active:scale-[0.98] transition-[background-color,border-color,color,opacity,box-shadow,transform]"
+              >
+                Start a new chat
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl font-semibold mb-3 tracking-tight">
+                Welcome to TenshiLLM
+              </h2>
+              <p className="text-sm leading-relaxed text-pretty max-w-[320px] mb-8 text-muted-foreground">
+                Connect any OpenAI-compatible provider and start chatting. Your data stays on this device — no cloud, no tracking.
+              </p>
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-sm hover:opacity-90 active:scale-[0.98] transition-[background-color,border-color,color,opacity,box-shadow,transform]"
+              >
+                Configure your first provider
+              </button>
+              <p className="text-xs text-muted-foreground mt-4">
+                Tip: open the sidebar with the menu icon to start a new chat.
+              </p>
+            </>
+          )}
         </div>
       </div>
     );
