@@ -3,7 +3,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
-import { PanelLeftOpen, Settings, Cpu } from 'lucide-react';
+import { PanelLeftOpen, Settings } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import type {
   Attachment,
@@ -24,6 +24,7 @@ import { describeRuntimeError, isTauriRuntime } from '@/lib/runtime';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
+import emptyStateAngel from '@/assets/brand/empty-state-angel.webp';
 
 interface StreamedCompletion {
   content: string;
@@ -598,9 +599,11 @@ export function ChatView() {
 
         {/* Hero empty state */}
         <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
-          <div className="grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary mb-5">
-            <Cpu size={32} aria-hidden="true" />
-          </div>
+          <img
+            src={emptyStateAngel}
+            alt=""
+            className="w-72 max-w-full object-contain mb-5"
+          />
           {canStartConversation ? (
             <>
               <h2 className="text-xl font-semibold mb-3 tracking-tight">Ready when you are</h2>
@@ -681,9 +684,11 @@ export function ChatView() {
         <div className="w-full px-4 md:px-6 lg:px-10 xl:px-16 py-6 md:py-8">
           {currentMessages.length === 0 && (
             <div className="text-center py-20">
-              <div className="grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary mx-auto mb-4">
-                <Cpu size={24} aria-hidden="true" />
-              </div>
+              <img
+                src={emptyStateAngel}
+                alt=""
+                className="w-40 max-w-full object-contain mx-auto mb-4"
+              />
               <p className="text-base font-medium mb-1">How can I help you today?</p>
               <p className="text-sm text-muted-foreground">
                 Type your message below to get started

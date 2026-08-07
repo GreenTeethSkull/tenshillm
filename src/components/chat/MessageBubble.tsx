@@ -1,9 +1,10 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, Wrench, Copy, Check } from 'lucide-react';
+import { Wrench, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import type { Message } from '@/types';
 import { cn } from '@/lib/utils';
+import assistantAvatar from '@/assets/brand/assistant-avatar.webp';
 
 interface Props {
   message: Message;
@@ -132,8 +133,8 @@ export function MessageBubble({ message, isStreaming }: Props) {
   // Assistant message — avatar + full-width content (Claude/ChatGPT style)
   return (
     <article className="flex gap-4 group">
-      <div className="grid size-9 place-items-center rounded-lg shrink-0 bg-primary/15 text-primary">
-        <Bot size={18} aria-hidden="true" />
+      <div className="size-9 shrink-0 overflow-hidden rounded-lg bg-primary/15">
+        <img src={assistantAvatar} alt="" className="size-full object-cover" />
       </div>
 
       <div className="min-w-0 flex-1 pt-0.5">

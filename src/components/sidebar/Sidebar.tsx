@@ -9,6 +9,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { ScrollShadow } from '@heroui/react';
 import { cn } from '@/lib/utils';
+import brandMark from '@/assets/brand/tenshillm-mark-master.webp';
 
 export function Sidebar() {
   const {
@@ -75,8 +76,8 @@ export function Sidebar() {
           style={{ paddingTop: 'max(16px, var(--safe-top))' }}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="grid size-8 place-items-center rounded-lg bg-primary/15 text-primary shrink-0">
-              <MessageSquare size={17} aria-hidden="true" />
+            <span className="grid size-8 place-items-center overflow-hidden rounded-lg bg-primary/15 text-primary shrink-0">
+              <img src={brandMark} alt="" className="size-8 scale-150 object-contain" />
             </span>
             <h1 className="text-base font-semibold tracking-tight truncate">
               TenshiLLM
