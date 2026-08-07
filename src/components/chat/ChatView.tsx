@@ -678,7 +678,7 @@ export function ChatView() {
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 md:py-8">
+        <div className="w-full px-4 md:px-6 lg:px-10 xl:px-16 py-6 md:py-8">
           {currentMessages.length === 0 && (
             <div className="text-center py-20">
               <div className="grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary mx-auto mb-4">

@@ -82,7 +82,7 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
       className="border-t border-border bg-background"
       style={{ paddingBottom: 'max(16px, var(--safe-bottom))' }}
     >
-      <div className="mx-auto w-full max-w-3xl px-4 md:px-6 pt-4 pb-2">
+      <div className="w-full px-4 md:px-6 lg:px-10 xl:px-16 pt-4 pb-2">
         {/* Attachments preview */}
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
