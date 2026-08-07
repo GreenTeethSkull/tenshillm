@@ -13,7 +13,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 });
 
 const { useChatStore } = await import('../src/stores/chatStore');
-const { useSettingsStore } = await import('../src/stores/settingsStore');
+const { DEFAULT_SYSTEM_PROMPT, useSettingsStore } = await import('../src/stores/settingsStore');
 
 describe('chat persistence', () => {
   test('persists conversations and messages without transient UI state', () => {
@@ -41,6 +41,67 @@ describe('chat persistence', () => {
 
     useChatStore.getState().deleteAllConversations();
     useChatStore.getState().setIsStreaming(false);
+  });
+
+  test('moves the active conversation to trash without deleting its messages', () => {
+    useChatStore.getState().deleteAllConversations();
+    const conversationId = useChatStore
+      .getState()
+      .createNewConversation('provider-1', 'model-1', 'Be concise.');
+    useChatStore.getState().addMessage(conversationId, {
+      id: 'message-trash',
+      conversationId,
+      role: 'user',
+      content: 'Keep this message',
+      attachments: [],
+      toolCalls: [],
+      toolResults: [],
+      timestamp: 1,
+      tokenUsage: null,
+    });
+
+    useChatStore.getState().archiveConversation(conversationId);
+    const state = useChatStore.getState();
+    const [conversation] = state.conversations;
+
+    expect(conversation.isArchived).toBe(true);
+    expect(state.activeConversationId).toBeNull();
+    expect(state.messages[conversationId]).toHaveLength(1);
+
+    useChatStore.getState().deleteAllConversations();
+  });
+
+  test('deletes all chats without changing settings', () => {
+    useChatStore.getState().deleteAllConversations();
+    const archivedId = useChatStore
+      .getState()
+      .createNewConversation('provider-1', 'model-1', 'Archived prompt');
+    useChatStore.getState().archiveConversation(archivedId);
+    const activeId = useChatStore
+      .getState()
+      .createNewConversation('provider-2', 'model-2', 'Active prompt');
+
+    useSettingsStore.setState({
+      providers: [{ id: 'provider-keep' } as never],
+      activeProviderId: 'provider-keep',
+      activeModelId: 'model-keep',
+      defaultSystemPrompt: 'Keep this setting',
+    });
+
+    useChatStore.getState().deleteAllConversations();
+
+    const chatState = useChatStore.getState();
+    const settingsState = useSettingsStore.getState();
+    expect(chatState.conversations).toEqual([]);
+    expect(chatState.messages).toEqual({});
+    expect(chatState.activeConversationId).toBeNull();
+    expect(settingsState.providers).toEqual([{ id: 'provider-keep' }]);
+    expect(settingsState.activeProviderId).toBe('provider-keep');
+    expect(settingsState.activeModelId).toBe('model-keep');
+    expect(settingsState.defaultSystemPrompt).toBe('Keep this setting');
+    expect(activeId).toBeTruthy();
+
+    useSettingsStore.getState().resetSettings();
   });
 });
 
@@ -159,7 +220,7 @@ describe('search settings', () => {
     expect(state.activeProviderId).toBeNull();
     expect(state.activeModelId).toBeNull();
     expect(state.searchConfig.provider).toBe('duckduckgo');
-    expect(state.defaultSystemPrompt).toBe('You are a helpful AI assistant.');
+    expect(state.defaultSystemPrompt).toBe(DEFAULT_SYSTEM_PROMPT);
   });
 
   test('persists the system prompt immediately', () => {

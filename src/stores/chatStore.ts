@@ -68,6 +68,7 @@ export const useChatStore = create<ChatState>()(
           conversations: s.conversations.map((c) =>
             c.id === id ? { ...c, isArchived: true } : c
           ),
+          activeConversationId: s.activeConversationId === id ? null : s.activeConversationId,
         })),
       restoreConversation: (id) =>
         set((s) => ({

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { DEFAULT_SYSTEM_PROMPT, useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { THEMES } from '@/types';
 import type { ApiProvider, ModelConfig, McpServer, SearchConfig } from '@/types';
@@ -16,6 +16,7 @@ import {
   EyeOff,
   Plug,
   Save,
+  RotateCcw,
   X,
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
@@ -883,7 +884,22 @@ export function SettingsPanel() {
 
               <Separator />
 
-              <Field label="Default System Prompt" htmlFor="sys-prompt">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="sys-prompt" className="block text-xs font-medium text-foreground">
+                    Default System Prompt
+                  </label>
+                  <GhostButton
+                    onClick={() => setDefaultSystemPrompt(DEFAULT_SYSTEM_PROMPT)}
+                    disabled={defaultSystemPrompt === DEFAULT_SYSTEM_PROMPT}
+                    ariaLabel="Revert to default system prompt"
+                    title="Revert to default system prompt"
+                    className="h-7 px-2.5 text-xs"
+                  >
+                    <RotateCcw size={13} />
+                    Revert
+                  </GhostButton>
+                </div>
                 <TextAreaInput
                   id="sys-prompt"
                   value={defaultSystemPrompt}
@@ -893,7 +909,7 @@ export function SettingsPanel() {
                   rows={4}
                   placeholder="Base instructions for every conversation"
                 />
-              </Field>
+              </div>
             </Tabs.Panel>
           </div>
         </ScrollShadow>

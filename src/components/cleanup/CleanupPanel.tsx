@@ -47,6 +47,9 @@ export function CleanupPanel() {
         case 'empty-trash':
           deleteArchivedConversations();
           break;
+        case 'delete-chats':
+          deleteAllConversations();
+          break;
         case 'delete-all':
           deleteAllConversations();
           resetSettings();
@@ -255,6 +258,31 @@ export function CleanupPanel() {
                   {confirmAction === 'clear-cache'
                     ? 'Click again to confirm'
                     : 'Remove temporary data and search cache'}
+                </span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleConfirm('delete-chats')}
+              disabled={conversations.length === 0}
+              aria-label="Delete all chats"
+              className={cn(
+                'w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed',
+                confirmAction === 'delete-chats'
+                  ? 'border-destructive bg-destructive/10 ring-2 ring-destructive/30'
+                  : 'border-border bg-card hover:border-destructive/50 hover:bg-muted-bg'
+              )}
+            >
+              <span className="grid size-10 place-items-center rounded-xl bg-destructive/15 shrink-0">
+                <Trash2 className="size-4.5 text-destructive" aria-hidden="true" />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-medium">Delete All Chats</span>
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  {confirmAction === 'delete-chats'
+                    ? 'Click again to confirm - this cannot be undone'
+                    : 'Delete all active and trashed chats and their messages'}
                 </span>
               </span>
             </button>

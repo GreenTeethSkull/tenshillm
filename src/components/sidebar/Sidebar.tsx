@@ -4,7 +4,6 @@ import {
   Settings,
   Trash2,
   PanelLeftClose,
-  Archive,
 } from 'lucide-react';
 import { useChatStore } from '@/stores/chatStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -197,11 +196,11 @@ export function Sidebar() {
                         <button
                           type="button"
                           onClick={() => archiveConversation(conv.id)}
-                          aria-label={`Archive conversation ${conv.title}`}
-                          title="Archive conversation"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 grid size-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background/60 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150"
+                          aria-label={`Move ${conv.title} to trash`}
+                          title="Move to trash"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 grid size-7 place-items-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors duration-150"
                         >
-                          <Archive size={14} aria-hidden="true" />
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </div>
                     </li>

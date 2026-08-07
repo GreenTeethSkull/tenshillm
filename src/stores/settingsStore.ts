@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { ApiProvider, ModelConfig, McpServer, SearchConfig, AgentSkill } from '../types';
 
+export const DEFAULT_SYSTEM_PROMPT = 'You are a helpful AI assistant.';
+
 interface SettingsState {
   providers: ApiProvider[];
   activeProviderId: string | null;
@@ -78,7 +80,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   mcpServers: [],
   searchConfig: DEFAULT_SEARCH_CONFIG,
   agentSkills: [],
-  defaultSystemPrompt: 'You are a helpful AI assistant.',
+  defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
   fontSize: 14,
 
   setProviders: (providers) => set({ providers }),
@@ -144,7 +146,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       mcpServers: [],
       searchConfig: { ...DEFAULT_SEARCH_CONFIG },
       agentSkills: [],
-      defaultSystemPrompt: 'You are a helpful AI assistant.',
+      defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
       fontSize: 14,
     });
   },
