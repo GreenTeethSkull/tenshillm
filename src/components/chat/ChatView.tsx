@@ -3,7 +3,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
-import { PanelLeftOpen, Settings } from 'lucide-react';
+import { PanelLeftOpen, PanelLeftClose, Settings } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import type {
   Attachment,
@@ -657,7 +657,7 @@ export function ChatView() {
             aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
             className="-ml-1 grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted-bg transition-colors"
           >
-            <PanelLeftOpen size={20} />
+            {sidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
           </button>
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold truncate leading-snug tracking-tight">
