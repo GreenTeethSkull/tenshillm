@@ -3,7 +3,17 @@ import { useChatStore } from '@/stores/chatStore';
 import { DEFAULT_SYSTEM_PROMPT, useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { THEMES } from '@/types';
-import type { ApiProvider, ModelConfig, McpServer, SearchConfig } from '@/types';
+import type {
+  ApiProvider,
+  ModelConfig,
+  McpServer,
+  SearchConfig,
+  AgentSkill,
+  SkillContentResult,
+  SkillDirectoryEntry,
+  SkillSource,
+  SkillsResolveResult,
+} from '@/types';
 import {
   Plus,
   Trash2,
@@ -18,12 +28,22 @@ import {
   Save,
   RotateCcw,
   X,
+  Download,
+  RefreshCw,
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { toast } from 'sonner';
 import { Tabs, ScrollShadow, Separator } from '@heroui/react';
 import { Drawer } from '@/components/Overlay';
 import { listMcpTools } from '@/lib/mcp';
+import {
+  checkSkillUpdates,
+  fetchSkill,
+  formatInstalls,
+  resolveSkillSource,
+  searchSkillDirectory,
+  skillSourceForListing,
+} from '@/lib/skills';
 import { describeRuntimeError, isTauriRuntime } from '@/lib/runtime';
 import {
   Toggle,
@@ -61,6 +81,7 @@ export function SettingsPanel() {
     setSearchConfig,
     agentSkills,
     addAgentSkill,
+    addAgentSkills,
     updateAgentSkill,
     removeAgentSkill,
     defaultSystemPrompt,
@@ -100,6 +121,19 @@ export function SettingsPanel() {
   const [skillName, setSkillName] = useState('');
   const [skillDesc, setSkillDesc] = useState('');
   const [skillContent, setSkillContent] = useState('');
+
+  // Skill install / update
+  const [skillSourceInput, setSkillSourceInput] = useState('');
+  const [resolvingSource, setResolvingSource] = useState(false);
+  const [pendingInstall, setPendingInstall] = useState<SkillsResolveResult | null>(null);
+  const [selectedSkillPaths, setSelectedSkillPaths] = useState<string[]>([]);
+  const [installing, setInstalling] = useState(false);
+  const [directoryQuery, setDirectoryQuery] = useState('');
+  const [searchingDirectory, setSearchingDirectory] = useState(false);
+  const [directoryResults, setDirectoryResults] = useState<SkillDirectoryEntry[] | null>(null);
+  const [installingEntryId, setInstallingEntryId] = useState<string | null>(null);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [updatingSkillId, setUpdatingSkillId] = useState<string | null>(null);
 
   const handleAddProvider = () => {
     if (!providerName || !providerUrl) return;
@@ -237,6 +271,242 @@ export function SettingsPanel() {
     setShowSkillForm(false);
     saveSettings();
     toast.success('Skill added');
+  };
+
+  const sourcedSkills = agentSkills.filter(
+    (skill) => skill.source && skill.source.kind !== 'manual'
+  );
+
+  const resetInstallState = () => {
+    setPendingInstall(null);
+    setSelectedSkillPaths([]);
+    setSkillSourceInput('');
+  };
+
+  const buildSkillFromContent = (content: SkillContentResult): AgentSkill => ({
+    id: nanoid(),
+    name: content.name,
+    description: content.description,
+    content: content.content,
+    filePath: '',
+    isEnabled: true,
+    createdAt: Date.now(),
+    source: content.source,
+    updatedAt: Date.now(),
+  });
+
+  const upsertRemoteSkill = (skill: AgentSkill): 'added' | 'updated' => {
+    const existing = agentSkills.find(
+      (candidate) =>
+        candidate.source &&
+        skill.source &&
+        candidate.source.kind === skill.source.kind &&
+        candidate.source.repo === skill.source.repo &&
+        candidate.source.skillPath === skill.source.skillPath
+    );
+    if (existing) {
+      updateAgentSkill(existing.id, {
+        name: skill.name,
+        description: skill.description,
+        content: skill.content,
+        source: skill.source,
+        updatedAt: skill.updatedAt,
+      });
+      return 'updated';
+    }
+    addAgentSkill(skill);
+    return 'added';
+  };
+
+  const requireRuntime = (): boolean => {
+    if (isTauriRuntime()) return true;
+    toast.error('Skill installation requires the Tauri desktop or mobile runtime.');
+    return false;
+  };
+
+  const handleResolveSource = async () => {
+    const source = skillSourceInput.trim();
+    if (!source || !requireRuntime()) return;
+    setResolvingSource(true);
+    try {
+      const result = await resolveSkillSource(source);
+      if (result.skills.length === 0) {
+        toast.error('No SKILL.md files found at that source');
+        return;
+      }
+      setPendingInstall(result);
+      setSelectedSkillPaths(result.skills.map((listing) => listing.skillPath));
+    } catch (error) {
+      toast.error(`Could not resolve source: ${describeRuntimeError(error)}`);
+    } finally {
+      setResolvingSource(false);
+    }
+  };
+
+  const handleInstallSelected = async () => {
+    if (!pendingInstall || !requireRuntime()) return;
+    const selected = pendingInstall.skills.filter((listing) =>
+      selectedSkillPaths.includes(listing.skillPath)
+    );
+    if (selected.length === 0) return;
+    setInstalling(true);
+    try {
+      const results = await Promise.allSettled(
+        selected.map((listing) => fetchSkill(skillSourceForListing(pendingInstall.source, listing)))
+      );
+      const newSkills: AgentSkill[] = [];
+      const updates: { id: string; skill: AgentSkill }[] = [];
+      let failures = 0;
+      for (const result of results) {
+        if (result.status !== 'fulfilled' || !result.value.content.trim()) {
+          failures += 1;
+          continue;
+        }
+        const skill = buildSkillFromContent(result.value);
+        const existing = agentSkills.find(
+          (candidate) =>
+            candidate.source &&
+            skill.source &&
+            candidate.source.kind === skill.source.kind &&
+            candidate.source.repo === skill.source.repo &&
+            candidate.source.skillPath === skill.source.skillPath
+        );
+        if (existing) updates.push({ id: existing.id, skill });
+        else newSkills.push(skill);
+      }
+
+      if (newSkills.length > 0 || updates.length > 0) {
+        if (newSkills.length > 0) addAgentSkills(newSkills);
+        for (const { id, skill } of updates) {
+          updateAgentSkill(id, {
+            name: skill.name,
+            description: skill.description,
+            content: skill.content,
+            source: skill.source,
+            updatedAt: skill.updatedAt,
+          });
+        }
+        saveSettings();
+        const total = newSkills.length + updates.length;
+        const parts = [`${total} skill${total === 1 ? '' : 's'} installed`];
+        if (updates.length > 0) parts.push(`${updates.length} updated`);
+        if (failures > 0) parts.push(`${failures} failed`);
+        toast.success(parts.join(', '));
+        resetInstallState();
+      } else {
+        toast.error('All skill downloads failed');
+      }
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  const handleSearchDirectory = async () => {
+    const query = directoryQuery.trim();
+    if (!query || !requireRuntime()) return;
+    setSearchingDirectory(true);
+    try {
+      setDirectoryResults(await searchSkillDirectory(query, 10));
+    } catch (error) {
+      toast.error(`skills.sh search failed: ${describeRuntimeError(error)}`);
+    } finally {
+      setSearchingDirectory(false);
+    }
+  };
+
+  const handleInstallDirectoryEntry = async (entry: SkillDirectoryEntry) => {
+    if (!requireRuntime()) return;
+    setInstallingEntryId(entry.id);
+    try {
+      const resolved = await resolveSkillSource(entry.source);
+      const listing =
+        resolved.skills.find((candidate) => candidate.name === entry.name) ?? resolved.skills[0];
+      if (!listing) {
+        toast.error(`Could not find "${entry.name}" in ${entry.source}`);
+        return;
+      }
+      const content = await fetchSkill(skillSourceForListing(resolved.source, listing));
+      if (!content.content.trim()) {
+        toast.error(`"${entry.name}" has no usable content`);
+        return;
+      }
+      const outcome = upsertRemoteSkill(buildSkillFromContent(content));
+      saveSettings();
+      toast.success(outcome === 'updated' ? `${content.name} updated` : `${content.name} installed`);
+    } catch (error) {
+      toast.error(`Install failed: ${describeRuntimeError(error)}`);
+    } finally {
+      setInstallingEntryId(null);
+    }
+  };
+
+  const handleCheckUpdates = async () => {
+    if (sourcedSkills.length === 0 || !requireRuntime()) return;
+    setCheckingUpdates(true);
+    try {
+      const updates = await checkSkillUpdates(
+        sourcedSkills.map((skill) => skill.source as SkillSource)
+      );
+      let changed = 0;
+      let current = 0;
+      let failed = 0;
+      for (const info of updates) {
+        const skill = sourcedSkills[info.index];
+        if (!skill) continue;
+        if (info.error) {
+          failed += 1;
+          continue;
+        }
+        if (
+          info.content !== skill.content ||
+          (info.name && info.name !== skill.name) ||
+          (info.description && info.description !== skill.description)
+        ) {
+          updateAgentSkill(skill.id, {
+            name: info.name || skill.name,
+            description: info.description,
+            content: info.content,
+            updatedAt: Date.now(),
+          });
+          changed += 1;
+        } else {
+          current += 1;
+        }
+      }
+      saveSettings();
+      toast.success(
+        `${changed} updated, ${current} up to date${failed > 0 ? `, ${failed} failed` : ''}`
+      );
+    } catch (error) {
+      toast.error(`Update check failed: ${describeRuntimeError(error)}`);
+    } finally {
+      setCheckingUpdates(false);
+    }
+  };
+
+  const handleUpdateSkill = async (skill: AgentSkill) => {
+    if (!skill.source || !requireRuntime()) return;
+    setUpdatingSkillId(skill.id);
+    try {
+      const content = await fetchSkill(skill.source);
+      if (!content.content.trim()) {
+        toast.error(`"${skill.name}" has no usable content`);
+        return;
+      }
+      updateAgentSkill(skill.id, {
+        name: content.name || skill.name,
+        description: content.description,
+        content: content.content,
+        source: content.source,
+        updatedAt: Date.now(),
+      });
+      saveSettings();
+      toast.success(`${skill.name} updated`);
+    } catch (error) {
+      toast.error(`Update failed: ${describeRuntimeError(error)}`);
+    } finally {
+      setUpdatingSkillId(null);
+    }
   };
 
   const handleClose = () => {
@@ -804,6 +1074,129 @@ export function SettingsPanel() {
                 </PrimaryButton>
               </div>
 
+              {/* Install from remote source */}
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <div>
+                  <h4 className="text-sm font-semibold">Install from source</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    GitHub repo (owner/repo), GitHub/GitLab URL, or a direct SKILL.md link
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <TextInput
+                    value={skillSourceInput}
+                    onChange={setSkillSourceInput}
+                    placeholder="vercel-labs/agent-skills"
+                    autoComplete="off"
+                  />
+                  <GhostButton
+                    onClick={() => void handleResolveSource()}
+                    disabled={resolvingSource || !skillSourceInput.trim()}
+                    className="shrink-0"
+                  >
+                    <Download size={14} />
+                    {resolvingSource ? 'Looking up' : 'Find'}
+                  </GhostButton>
+                </div>
+
+                {pendingInstall && (
+                  <div className="space-y-2 pt-1">
+                    <p className="text-xs font-medium">
+                      {pendingInstall.skills.length} skill
+                      {pendingInstall.skills.length === 1 ? '' : 's'} found — select to install:
+                    </p>
+                    {pendingInstall.skills.map((listing) => (
+                      <CheckBox
+                        key={listing.skillPath}
+                        checked={selectedSkillPaths.includes(listing.skillPath)}
+                        onChange={(checked) => {
+                          setSelectedSkillPaths((current) =>
+                            checked
+                              ? [...current, listing.skillPath]
+                              : current.filter((path) => path !== listing.skillPath)
+                          );
+                        }}
+                        label={listing.name}
+                      />
+                    ))}
+                    <div className="flex gap-2 pt-1">
+                      <PrimaryButton
+                        onClick={() => void handleInstallSelected()}
+                        disabled={installing || selectedSkillPaths.length === 0}
+                      >
+                        <Download size={14} />
+                        {installing ? 'Installing' : `Install ${selectedSkillPaths.length}`}
+                      </PrimaryButton>
+                      <GhostButton onClick={resetInstallState}>Cancel</GhostButton>
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                <div>
+                  <h4 className="text-sm font-semibold">Browse skills.sh</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Experimental directory search — same ecosystem as npx skills
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <TextInput
+                    value={directoryQuery}
+                    onChange={setDirectoryQuery}
+                    placeholder="Search skills.sh"
+                    autoComplete="off"
+                  />
+                  <GhostButton
+                    onClick={() => void handleSearchDirectory()}
+                    disabled={searchingDirectory || !directoryQuery.trim()}
+                    className="shrink-0"
+                  >
+                    <SearchIcon size={14} />
+                    {searchingDirectory ? 'Searching' : 'Search'}
+                  </GhostButton>
+                </div>
+
+                {directoryResults && (
+                  <div className="space-y-2">
+                    {directoryResults.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        No skills found. Try installing directly from a source above.
+                      </p>
+                    ) : (
+                      directoryResults.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-muted-bg/60 border border-border"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium truncate">{entry.name}</span>
+                              {formatInstalls(entry.installs) && (
+                                <span className="shrink-0 h-5 px-1.5 rounded text-[10px] font-medium bg-muted-bg border border-border text-muted-foreground inline-flex items-center">
+                                  {formatInstalls(entry.installs)} installs
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {entry.source}
+                            </p>
+                          </div>
+                          <GhostButton
+                            onClick={() => void handleInstallDirectoryEntry(entry)}
+                            disabled={installingEntryId === entry.id}
+                            className="h-7 px-2.5 text-xs shrink-0"
+                          >
+                            <Download size={13} />
+                            {installingEntryId === entry.id ? 'Installing' : 'Install'}
+                          </GhostButton>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
               {showSkillForm && (
                 <div className="rounded-xl border border-border bg-card p-4 space-y-3">
                   <Field label="Skill name" htmlFor="skill-name">
@@ -845,42 +1238,91 @@ export function SettingsPanel() {
                 </p>
               )}
 
-              {agentSkills.map((skill) => (
-                <div key={skill.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-sm font-semibold">{skill.name}</h4>
-                      {skill.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{skill.description}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Toggle
-                        checked={skill.isEnabled}
-                        onChange={(v) => {
-                          updateAgentSkill(skill.id, { isEnabled: v });
-                          saveSettings();
-                        }}
-                        label={`Toggle ${skill.name}`}
-                      />
-                      <IconGhostButton
-                        onClick={() => {
-                          removeAgentSkill(skill.id);
-                          saveSettings();
-                        }}
-                        ariaLabel={`Delete ${skill.name}`}
-                        className="hover:text-destructive"
-                      >
-                        <Trash2 size={16} />
-                      </IconGhostButton>
-                    </div>
-                  </div>
-                  <pre className="text-xs text-muted-foreground bg-muted-bg/50 rounded-lg p-3 max-h-24 overflow-auto leading-relaxed font-mono border border-border">
-                    {skill.content.slice(0, 200)}
-                    {skill.content.length > 200 ? '...' : ''}
-                  </pre>
+              {sourcedSkills.length > 0 && (
+                <div className="flex items-center justify-between gap-3 px-1">
+                  <p className="text-xs text-muted-foreground">
+                    {sourcedSkills.length} skill{sourcedSkills.length === 1 ? '' : 's'} from remote
+                    sources
+                  </p>
+                  <GhostButton
+                    onClick={() => void handleCheckUpdates()}
+                    disabled={checkingUpdates}
+                    className="h-7 px-2.5 text-xs"
+                  >
+                    <RefreshCw size={13} className={checkingUpdates ? 'animate-spin' : ''} />
+                    {checkingUpdates ? 'Checking' : 'Check updates'}
+                  </GhostButton>
                 </div>
-              ))}
+              )}
+
+              {agentSkills.map((skill) => {
+                const isRemote = Boolean(skill.source && skill.source.kind !== 'manual');
+                const sourceLabel = skill.source
+                  ? skill.source.repo || skill.source.url || skill.source.kind
+                  : '';
+                return (
+                  <div
+                    key={skill.id}
+                    className="rounded-xl border border-border bg-card p-4 space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-semibold">{skill.name}</h4>
+                          {isRemote && (
+                            <span className="shrink-0 h-5 px-1.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 inline-flex items-center max-w-full">
+                              <span className="truncate">{sourceLabel}</span>
+                            </span>
+                          )}
+                        </div>
+                        {skill.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {skill.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Toggle
+                          checked={skill.isEnabled}
+                          onChange={(v) => {
+                            updateAgentSkill(skill.id, { isEnabled: v });
+                            saveSettings();
+                          }}
+                          label={`Toggle ${skill.name}`}
+                        />
+                        {isRemote && (
+                          <IconGhostButton
+                            onClick={() => void handleUpdateSkill(skill)}
+                            disabled={updatingSkillId === skill.id}
+                            ariaLabel={`Update ${skill.name}`}
+                            title="Re-install from source"
+                            className="hover:text-primary"
+                          >
+                            <RefreshCw
+                              size={15}
+                              className={updatingSkillId === skill.id ? 'animate-spin' : ''}
+                            />
+                          </IconGhostButton>
+                        )}
+                        <IconGhostButton
+                          onClick={() => {
+                            removeAgentSkill(skill.id);
+                            saveSettings();
+                          }}
+                          ariaLabel={`Delete ${skill.name}`}
+                          className="hover:text-destructive"
+                        >
+                          <Trash2 size={16} />
+                        </IconGhostButton>
+                      </div>
+                    </div>
+                    <pre className="text-xs text-muted-foreground bg-muted-bg/50 rounded-lg p-3 max-h-24 overflow-auto leading-relaxed font-mono border border-border">
+                      {skill.content.slice(0, 200)}
+                      {skill.content.length > 200 ? '...' : ''}
+                    </pre>
+                  </div>
+                );
+              })}
 
               <Separator />
 

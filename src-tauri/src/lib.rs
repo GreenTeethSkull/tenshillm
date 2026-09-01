@@ -4,8 +4,10 @@ use std::collections::HashMap;
 use std::time::Duration;
 use uuid::Uuid;
 
+mod skills;
+
 const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
-const HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+pub(crate) const HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChatMessage {
@@ -709,6 +711,10 @@ pub fn run() {
             mcp_list_tools,
             mcp_call_tool,
             web_search,
+            skills::skills_resolve_source,
+            skills::skills_fetch_skill,
+            skills::skills_check_updates,
+            skills::skills_search_directory,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

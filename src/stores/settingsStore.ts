@@ -28,6 +28,7 @@ interface SettingsState {
   setSearchConfig: (config: SearchConfig) => void;
   setAgentSkills: (skills: AgentSkill[]) => void;
   addAgentSkill: (skill: AgentSkill) => void;
+  addAgentSkills: (skills: AgentSkill[]) => void;
   updateAgentSkill: (id: string, updates: Partial<AgentSkill>) => void;
   removeAgentSkill: (id: string) => void;
   setDefaultSystemPrompt: (prompt: string) => void;
@@ -126,6 +127,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setAgentSkills: (skills) => set({ agentSkills: skills }),
   addAgentSkill: (skill) => set((s) => ({ agentSkills: [...s.agentSkills, skill] })),
+  addAgentSkills: (skills) => set((s) => ({ agentSkills: [...s.agentSkills, ...skills] })),
   updateAgentSkill: (id, updates) =>
     set((s) => ({
       agentSkills: s.agentSkills.map((sk) => (sk.id === id ? { ...sk, ...updates } : sk)),

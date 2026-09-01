@@ -120,6 +120,49 @@ export interface McpTool {
   inputSchema: Record<string, unknown>;
 }
 
+export type SkillSourceKind = 'github' | 'gitlab' | 'url' | 'manual';
+
+export interface SkillSource {
+  kind: SkillSourceKind;
+  repo?: string;
+  skillPath?: string;
+  reference?: string;
+  url?: string;
+}
+
+export interface SkillListing {
+  name: string;
+  description: string;
+  skillPath: string;
+}
+
+export interface SkillsResolveResult {
+  source: SkillSource;
+  skills: SkillListing[];
+}
+
+export interface SkillContentResult {
+  name: string;
+  description: string;
+  content: string;
+  source: SkillSource;
+}
+
+export interface SkillDirectoryEntry {
+  id: string;
+  name: string;
+  installs: number;
+  source: string;
+}
+
+export interface SkillUpdateInfo {
+  index: number;
+  name: string;
+  description: string;
+  content: string;
+  error?: string;
+}
+
 export interface AgentSkill {
   id: string;
   name: string;
@@ -128,6 +171,8 @@ export interface AgentSkill {
   filePath: string;
   isEnabled: boolean;
   createdAt: number;
+  source?: SkillSource;
+  updatedAt?: number;
 }
 
 export interface SearchConfig {

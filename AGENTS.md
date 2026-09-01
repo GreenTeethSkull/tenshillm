@@ -34,6 +34,7 @@ src/
 │   └── chatStore.ts          # Conversations, messages, UI state
 ├── lib/
 │   ├── openai.ts             # OpenAI payload builder, endpoint helper + stream parser
+│   ├── skills.ts             # Remote skill resolve/fetch/update/search wrappers (invoke)
 │   └── utils.ts              # Lightweight `cn()` className joiner (no tailwind-merge)
 └── components/
     ├── Overlay.tsx           # Custom Drawer (right slide-over) + Modal (centered), Escape-handled
@@ -60,12 +61,19 @@ src-tauri/
 ├── capabilities/default.json # Plugin permissions + HTTP scope
 └── src/
     ├── main.rs               # Rust entry point
+    ├── skills.rs             # Remote skills: source parser, SKILL.md frontmatter
+    │                         #   parser, GitHub/GitLab discovery + raw fetch,
+    │                         #   skills.sh directory search + tests
     └── lib.rs                # Tauri commands:
                               #   - send_chat_request
                               #   - test_provider_connection
                               #   - mcp_list_tools
                               #   - mcp_call_tool
                               #   - web_search
+                              #   - skills_resolve_source
+                              #   - skills_fetch_skill
+                              #   - skills_check_updates
+                              #   - skills_search_directory
 ```
 
 ## Key Design Decisions
@@ -89,6 +97,15 @@ src-tauri/
 - DuckDuckGo is the default provider and does not require an API key
 - The Rust backend uses DuckDuckGo's HTML results endpoint and normalizes title, URL, and snippet fields
 - Anti-bot responses fail explicitly instead of being treated as empty successful results
+
+### 2.3 Remote Skills (skills.sh ecosystem)
+- Skills can be installed remotely from the open agent skills ecosystem (`npx skills`-compatible sources) **without Node**: the registry is GitHub/GitLab and the package format is a `SKILL.md` with optional flat YAML frontmatter (`name`, `description`)
+- All network work happens in Rust (`src-tauri/src/skills.rs`) via reqwest — HTTP only, so it works on desktop, Android, and iOS (no `tauri-plugin-shell`, no `npx`)
+- Accepted sources: `owner/repo` shorthand, GitHub/GitLab URLs (`/tree/<ref>[/<path>]`, `/blob/<ref>/<path>/SKILL.md`), and any direct `SKILL.md` URL
+- Discovery uses one GitHub trees API call per repo (`recursive=1`, blobs ending in `SKILL.md`); content is fetched from `raw.githubusercontent.com` (or GitLab raw). Frontmatter parsing is hand-rolled — no YAML crate
+- `skills.sh/api/search` is the same undocumented-but-unauthenticated endpoint the official CLI uses; treat it as experimental (graceful empty result on shape drift, explicit error on HTTP failure). It does not send CORS headers, so it is unreachable outside the Tauri runtime
+- Installed skills carry an optional `source` (`SkillSource`) on `AgentSkill`; reinstalling the same kind+repo+path **upserts** instead of duplicating; `skills_check_updates` re-fetches and the frontend compares content. Skills without `source` are manual and show no badge/update controls
+- Content is capped at 256 KiB; empty-content downloads are rejected by the UI
 
 ### 3. MCP Remote Only
 - Mobile platforms (Android/iOS) can't spawn local processes reliably
@@ -169,7 +186,7 @@ src-tauri/
 - **Themes**: Visual theme selector with color previews
 - **MCP**: Remote MCP server configuration (custom `Toggle` + `TextAreaInput` for headers)
 - **Search**: Web search provider setup (custom `Toggle` + `SelectInput` + `RangeInput` + `TextInput`)
-- **Skills**: Agent skill editor with Markdown content + default system prompt
+- **Skills**: Agent skill editor with Markdown content + remote install from GitHub/GitLab/SKILL.md sources, skills.sh directory search, per-skill and bulk update checks + default system prompt
 
 ### CleanupPanel.tsx — Modal
 - Rendered inside a custom `Modal` (centered from `Overlay.tsx`)
@@ -240,8 +257,9 @@ A single shared `:root` block maps HeroUI's design tokens to our semantic tokens
 
 ### Running the Manual E2E Checks
 1. Keep real test credentials in the ignored `.env` file; use `.env.example` for the variable reference
-2. Follow `docs/testing/manual-e2e.md` for the provider, MCP, skills, system prompt, search, chat, and Cleanup sequence
-3. Never add `.env`, decoded Markdown, screenshots containing credentials, or raw API responses to Git
+2. Follow `docs/testing/manual-e2e.md` for the provider, MCP, manual/remote skills, system prompt, search, chat, and Cleanup sequence
+3. Remote-skill flows (install/update/uninstall) can be exercised browser-only with the DevTools shim in the runbook's Appendix A (GitHub-backed commands hit the real network; skills.sh search requires the Tauri runtime because it sends no CORS headers)
+4. Never add `.env`, decoded Markdown, screenshots containing credentials, or raw API responses to Git
 
 ## Build Commands
 

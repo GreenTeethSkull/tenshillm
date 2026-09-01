@@ -35,6 +35,9 @@
 
 ### Agent Skills
 - **Markdown skill files**: Define skills as `.md` files that expand model capabilities
+- **Remote installation**: Install skills from the open skills.sh ecosystem — paste `owner/repo`, a GitHub/GitLab URL, or a direct `SKILL.md` link (no Node required, works on desktop and mobile)
+- **Skill maintenance**: Per-skill and bulk update checks re-fetch installed skills from their source; reinstalling the same source upserts instead of duplicating
+- **Directory browsing**: Experimental skills.sh search to discover community skills
 - **Dynamic injection**: Skills are injected into the system prompt based on context
 - **In-app editor**: Create and edit skills directly within the app
 
@@ -221,6 +224,7 @@ tenshillm/
 │   │   └── chatStore.ts          # Conversations and messages
 │   ├── lib/
 │   │   ├── openai.ts             # OpenAI payload builder + stream parser
+│   │   ├── skills.ts             # Remote skill install/update/search wrappers
 │   │   └── utils.ts              # Lightweight `cn()` className joiner
 │   └── components/
 │       ├── Overlay.tsx           # Custom Drawer (slide-over) + Modal (centered)
@@ -238,7 +242,8 @@ tenshillm/
 │   ├── capabilities/default.json # Plugin permissions
 │   └── src/
 │       ├── main.rs               # Rust entry point
-│       └── lib.rs                # Tauri commands (API, MCP, search)
+│       ├── lib.rs                # Tauri commands (API, MCP, search)
+│       └── skills.rs             # Remote skill resolution, fetch, and skills.sh search
 ├── package.json                  # Frontend dependencies
 ├── vite.config.ts                # Vite configuration
 ├── docs/testing/manual-e2e.md     # Repeatable sanitized E2E runbook
@@ -277,6 +282,8 @@ tenshillm/
 
 ### Adding Agent Skills
 
+**Manually:**
+
 1. Open **Settings** > **Skills** tab
 2. Click **Add Skill**
 3. Enter:
@@ -284,6 +291,19 @@ tenshillm/
    - **Description**: Short description
    - **Content**: Markdown instructions for the model
 4. Click **Save**
+
+**From the skills.sh ecosystem (remote):**
+
+1. Open **Settings** > **Skills** tab
+2. In **Install from source**, paste one of:
+   - GitHub shorthand: `vercel-labs/agent-skills`
+   - A GitHub/GitLab repository or tree URL, optionally pinned to a branch or folder
+   - A direct `SKILL.md` URL
+3. Click **Find** to discover the skills at that source, select the ones you want, and click **Install**
+4. Use the refresh button on a skill card (or **Check updates** for all) to re-fetch it from its source
+5. Re-installing the same source updates the existing skill instead of creating a duplicate; deleting a card uninstalls it
+
+The **Browse skills.sh** search box queries the public skills.sh directory (experimental, unauthenticated endpoint). Manual and remote skills coexist; only remote cards show a source badge and update controls.
 
 ### Enabling Web Search
 
