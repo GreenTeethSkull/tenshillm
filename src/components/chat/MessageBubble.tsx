@@ -69,23 +69,25 @@ export function MessageBubble({ message, isStreaming }: Props) {
 
   if (isTool) {
     return (
-      <article className="flex gap-4" aria-label="Tool response">
-        <div className="grid size-9 place-items-center rounded-lg shrink-0 bg-warning/15 text-warning">
-          <Wrench size={16} aria-hidden="true" />
-        </div>
-        <div className="min-w-0 flex-1 pt-1">
-          <details>
-            <summary className="cursor-pointer select-none text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              <span>Tool Result</span>
-              {message.toolResults.some((result) => result.isError) && (
-                <span className="ml-2 text-destructive">(Error)</span>
-              )}
-            </summary>
-            <pre className="bg-code-bg text-foreground/80 text-xs p-4 rounded-xl overflow-x-auto leading-relaxed font-mono border border-border mt-2">
-              {message.content}
-            </pre>
-          </details>
-        </div>
+      <article aria-label="Tool response">
+        <details>
+          <summary className="flex items-center gap-2.5 cursor-pointer select-none">
+            <div className="grid size-9 place-items-center rounded-lg shrink-0 bg-warning/15 text-warning">
+              <Wrench size={16} aria-hidden="true" />
+            </div>
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Tool Result
+            </span>
+            {message.toolResults.some((result) => result.isError) && (
+              <span className="text-[11px] font-semibold text-destructive uppercase tracking-wider">
+                (Error)
+              </span>
+            )}
+          </summary>
+          <pre className="bg-code-bg text-foreground/80 text-xs p-4 rounded-xl overflow-x-auto leading-relaxed font-mono border border-border mt-2">
+            {message.content}
+          </pre>
+        </details>
       </article>
     );
   }
@@ -130,86 +132,83 @@ export function MessageBubble({ message, isStreaming }: Props) {
     );
   }
 
-  // Assistant message — avatar + full-width content (Claude/ChatGPT style)
+  // Assistant message — avatar + label header row, content flows full-width below
   return (
-    <article className="flex gap-4 group">
-      <div className="size-9 shrink-0 overflow-hidden rounded-lg bg-primary/15">
-        <img src={assistantAvatar} alt="" className="size-full object-cover" />
-      </div>
-
-      <div className="min-w-0 flex-1 pt-0.5">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm font-semibold">Assistant</span>
-          {!isStreaming && message.content && (
-            <button
-              type="button"
-              onClick={handleCopy}
-              aria-label={copied ? 'Copied to clipboard' : 'Copy message'}
-              title={copied ? 'Copied' : 'Copy message'}
-              className="grid size-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-bg opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150"
-            >
-              {copied ? (
-                <Check size={13} aria-hidden="true" />
-              ) : (
-                <Copy size={13} aria-hidden="true" />
-              )}
-            </button>
-          )}
+    <article className="group">
+      <div className="flex items-center gap-2.5 mb-2">
+        <div className="size-9 shrink-0 overflow-hidden rounded-lg bg-primary/15">
+          <img src={assistantAvatar} alt="" className="size-full object-cover" />
         </div>
-
-        {message.attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {message.attachments.map((att) => (
-              <img
-                key={att.id}
-                src={`data:${att.mimeType};base64,${att.base64Data}`}
-                alt={att.name}
-                className="max-w-48 max-h-48 rounded-lg object-cover border border-border"
-              />
-            ))}
-          </div>
-        )}
-
-        {isStreaming && !message.content && !reasoning ? (
-          <div className="thinking-dots py-1" aria-label="Assistant is thinking">
-            <span />
-            <span />
-            <span />
-          </div>
-        ) : (
-          <>
-            {reasoning && <ThinkingSection reasoning={reasoning} />}
-            {message.content && (
-              <div
-                className={cn(
-                  'markdown-body',
-                  isError &&
-                    'rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive'
-                )}
-              >
-                <MarkdownContent content={message.content} />
-              </div>
+        <span className="text-sm font-semibold">Assistant</span>
+        {!isStreaming && message.content && (
+          <button
+            type="button"
+            onClick={handleCopy}
+            aria-label={copied ? 'Copied to clipboard' : 'Copy message'}
+            title={copied ? 'Copied' : 'Copy message'}
+            className="grid size-7 place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-bg opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150"
+          >
+            {copied ? (
+              <Check size={13} aria-hidden="true" />
+            ) : (
+              <Copy size={13} aria-hidden="true" />
             )}
-          </>
+          </button>
         )}
-
-        {isStreaming && message.content && (
-          <span
-            className="inline-block w-1.5 h-4 bg-primary ml-0.5 rounded-sm align-text-bottom animate-pulse"
-            aria-hidden="true"
-          />
-        )}
-
-        <time
-          className="block text-[11px] text-muted-foreground mt-2 tabular"
-          dateTime={new Date(message.timestamp).toISOString()}
-        >
-          {new Date(message.timestamp).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </time>
       </div>
+
+      {message.attachments.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {message.attachments.map((att) => (
+            <img
+              key={att.id}
+              src={`data:${att.mimeType};base64,${att.base64Data}`}
+              alt={att.name}
+              className="max-w-48 max-h-48 rounded-lg object-cover border border-border"
+            />
+          ))}
+        </div>
+      )}
+
+      {isStreaming && !message.content && !reasoning ? (
+        <div className="thinking-dots py-1" aria-label="Assistant is thinking">
+          <span />
+          <span />
+          <span />
+        </div>
+      ) : (
+        <>
+          {reasoning && <ThinkingSection reasoning={reasoning} />}
+          {message.content && (
+            <div
+              className={cn(
+                'markdown-body',
+                isError &&
+                  'rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive'
+              )}
+            >
+              <MarkdownContent content={message.content} />
+            </div>
+          )}
+        </>
+      )}
+
+      {isStreaming && message.content && (
+        <span
+          className="inline-block w-1.5 h-4 bg-primary ml-0.5 rounded-sm align-text-bottom animate-pulse"
+          aria-hidden="true"
+        />
+      )}
+
+      <time
+        className="block text-[11px] text-muted-foreground mt-2 tabular"
+        dateTime={new Date(message.timestamp).toISOString()}
+      >
+        {new Date(message.timestamp).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
+      </time>
     </article>
   );
 }
