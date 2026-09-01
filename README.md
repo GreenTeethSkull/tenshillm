@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/Tailwind-v4-38bdf8" alt="Tailwind v4" />
   <img src="https://img.shields.io/badge/Bun-1.3-fbf0cf" alt="Bun" />
   <img src="https://img.shields.io/badge/Rust-1.96-dea584" alt="Rust" />
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
+  <img src="https://img.shields.io/badge/License-GPL%20v3-blue" alt="License: GPL v3" />
 </p>
 
 ---
@@ -436,7 +436,15 @@ See [AGENTS.md](AGENTS.md#android-build-errors-openssl) for detailed explanation
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
+Copyright (C) 2026 Angel Rios
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+See the full license text in [LICENSE](LICENSE).
 
 ---
 

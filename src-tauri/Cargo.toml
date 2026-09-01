@@ -3,6 +3,7 @@ name = "tenshillm"
 version = "0.1.0"
 description = "TenshiLLM - Mobile AI Chat Client"
 authors = ["Angel Rios"]
+license = "GPL-3.0-or-later"
 edition = "2021"
 
 [lib]
