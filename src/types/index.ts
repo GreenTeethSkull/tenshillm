@@ -43,6 +43,18 @@ export const THEMES: ThemeInfo[] = [
   { id: 'gruvbox', name: 'Gruvbox Dark', description: 'Retro warm dark', bgPreview: '#282828', accentPreview: '#d79921', isDark: true },
 ];
 
+// Reasoning effort levels accepted by OpenAI-compatible `reasoning_effort`
+// style parameters. Not every model supports every level; which levels are
+// available is configured per model.
+export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+export const EFFORT_LEVELS: Effort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+
+// How a provider is reached: `auto` detects OpenCode (Zen/Go) from the base
+// URL, `opencode` forces the OpenCode session headers on, `standard` forces
+// them off (for OpenCode-compatible proxies on custom domains).
+export type ProviderSessionMode = 'auto' | 'opencode' | 'standard';
+
 export interface ApiProvider {
   id: string;
   name: string;
@@ -51,6 +63,7 @@ export interface ApiProvider {
   models: ModelConfig[];
   isActive: boolean;
   createdAt: number;
+  sessionMode?: ProviderSessionMode;
 }
 
 export interface ModelConfig {
@@ -61,6 +74,13 @@ export interface ModelConfig {
   supportsTools: boolean;
   contextWindow: number;
   maxOutputTokens: number;
+  // Effort levels selectable in the chat UI. Empty = effort disabled.
+  efforts: Effort[];
+  // Effort used when a conversation has no explicit selection.
+  // null = omit the parameter and let the provider decide.
+  defaultEffort: Effort | null;
+  // Request body field that carries the effort level (e.g. `reasoning_effort`).
+  effortParam: string;
 }
 
 export interface Conversation {
@@ -72,6 +92,9 @@ export interface Conversation {
   createdAt: number;
   updatedAt: number;
   isArchived: boolean;
+  // Explicit per-conversation effort selection. null/undefined = follow the
+  // model's `defaultEffort`.
+  effort?: Effort | null;
 }
 
 export type CompletionStatus = 'streaming' | 'complete' | 'aborted' | 'error';

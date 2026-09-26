@@ -15,7 +15,16 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { create } from 'zustand';
-import type { ApiProvider, ModelConfig, McpServer, SearchConfig, AgentSkill } from '../types';
+import { nanoid } from 'nanoid';
+import type {
+  ApiProvider,
+  ModelConfig,
+  McpServer,
+  SearchConfig,
+  AgentSkill,
+  ProviderSessionMode,
+} from '../types';
+import { normalizeDefaultEffort, normalizeEffortParam, normalizeEfforts } from '../lib/effort';
 
 export const DEFAULT_SYSTEM_PROMPT = 'You are a helpful AI assistant.';
 
@@ -36,6 +45,7 @@ interface SettingsState {
   setActiveProvider: (id: string | null) => void;
   setActiveModel: (id: string | null) => void;
   addModelToProvider: (providerId: string, model: ModelConfig) => void;
+  updateModelInProvider: (providerId: string, modelId: string, updates: Partial<ModelConfig>) => void;
   removeModelFromProvider: (providerId: string, modelId: string) => void;
   setMcpServers: (servers: McpServer[]) => void;
   addMcpServer: (server: McpServer) => void;
@@ -72,6 +82,79 @@ function normalizeSearchConfig(value: Partial<SearchConfig> | undefined): Search
   }
 
   return { ...config, apiKey };
+}
+
+// Coerces a persisted model to a valid ModelConfig. Effort fields may be
+// missing (models saved before effort support) or stale (hand-edited storage);
+// `changed` reports whether the effort fields had to be rewritten so the
+// settings can be re-persisted once.
+function normalizeModelConfig(raw: unknown): { model: ModelConfig; changed: boolean } {
+  const value = (raw && typeof raw === 'object' ? raw : {}) as Partial<ModelConfig>;
+  const efforts = normalizeEfforts(value.efforts);
+  const defaultEffort = normalizeDefaultEffort(value.defaultEffort, efforts);
+  const effortParam = normalizeEffortParam(value.effortParam);
+  const changed =
+    JSON.stringify(value.efforts ?? null) !== JSON.stringify(efforts) ||
+    (value.defaultEffort ?? null) !== defaultEffort ||
+    (value.effortParam ?? null) !== effortParam;
+
+  return {
+    model: {
+      id: typeof value.id === 'string' && value.id ? value.id : nanoid(),
+      modelId: typeof value.modelId === 'string' ? value.modelId : '',
+      displayName: typeof value.displayName === 'string' ? value.displayName : '',
+      supportsVision: Boolean(value.supportsVision),
+      supportsTools: Boolean(value.supportsTools),
+      contextWindow:
+        typeof value.contextWindow === 'number' && Number.isFinite(value.contextWindow)
+          ? value.contextWindow
+          : 128000,
+      maxOutputTokens:
+        typeof value.maxOutputTokens === 'number' && Number.isFinite(value.maxOutputTokens)
+          ? value.maxOutputTokens
+          : 4096,
+      efforts,
+      defaultEffort,
+      effortParam,
+    },
+    changed,
+  };
+}
+
+function normalizeProviderConfig(raw: unknown): { provider: ApiProvider; changed: boolean } {
+  const value = (raw && typeof raw === 'object' ? raw : {}) as Partial<ApiProvider>;
+  let changed = false;
+  const models: ModelConfig[] = [];
+
+  if (Array.isArray(value.models)) {
+    for (const rawModel of value.models) {
+      const normalized = normalizeModelConfig(rawModel);
+      if (normalized.changed) changed = true;
+      models.push(normalized.model);
+    }
+  }
+
+  const sessionMode: ProviderSessionMode | undefined =
+    value.sessionMode === 'auto' ||
+    value.sessionMode === 'opencode' ||
+    value.sessionMode === 'standard'
+      ? value.sessionMode
+      : undefined;
+  if ((value.sessionMode ?? undefined) !== sessionMode) changed = true;
+
+  return {
+    provider: {
+      id: typeof value.id === 'string' && value.id ? value.id : nanoid(),
+      name: typeof value.name === 'string' ? value.name : '',
+      baseUrl: typeof value.baseUrl === 'string' ? value.baseUrl : '',
+      apiKey: typeof value.apiKey === 'string' ? value.apiKey : '',
+      models,
+      isActive: value.isActive !== false,
+      createdAt: typeof value.createdAt === 'number' ? value.createdAt : Date.now(),
+      sessionMode,
+    },
+    changed,
+  };
 }
 
 function persistSettings(state: SettingsState): void {
@@ -119,6 +202,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         p.id === providerId ? { ...p, models: [...p.models, model] } : p
       ),
     })),
+  updateModelInProvider: (providerId, modelId, updates) =>
+    set((s) => ({
+      providers: s.providers.map((p) =>
+        p.id === providerId
+          ? {
+              ...p,
+              // Normalize the merged model so effort defaults stay consistent
+              // with the enabled levels even for partial updates.
+              models: p.models.map((m) =>
+                m.id === modelId ? normalizeModelConfig({ ...m, ...updates }).model : m
+              ),
+            }
+          : p
+      ),
+    })),
   removeModelFromProvider: (providerId, modelId) =>
     set((s) => ({
       providers: s.providers.map((p) =>
@@ -126,6 +224,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
           ? { ...p, models: p.models.filter((m) => m.id !== modelId) }
           : p
       ),
+      activeModelId: s.activeModelId === modelId ? null : s.activeModelId,
     })),
   setMcpServers: (servers) => set({ mcpServers: servers }),
   addMcpServer: (server) => set((s) => ({ mcpServers: [...s.mcpServers, server] })),
@@ -191,8 +290,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
               protocolVersion: undefined,
             }))
           : [];
-        set({ ...data, searchConfig, mcpServers });
-        if (searchConfigMigrated) persistSettings(get());
+        let providersMigrated = false;
+        const providers = Array.isArray(data.providers)
+          ? data.providers.map((rawProvider: unknown) => {
+              const normalized = normalizeProviderConfig(rawProvider);
+              if (normalized.changed) providersMigrated = true;
+              return normalized.provider;
+            })
+          : [];
+        set({ ...data, providers, searchConfig, mcpServers });
+        if (searchConfigMigrated || providersMigrated) persistSettings(get());
       }
     } catch {
       // ignore

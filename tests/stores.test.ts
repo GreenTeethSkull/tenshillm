@@ -248,3 +248,204 @@ describe('search settings', () => {
     useSettingsStore.getState().resetSettings();
   });
 });
+
+describe('provider and model effort settings', () => {
+  test('migrates legacy models to the effort defaults and re-persists', () => {
+    storage.set(
+      'tenshillm-settings',
+      JSON.stringify({
+        providers: [
+          {
+            id: 'provider-1',
+            name: 'OpenCode Zen',
+            baseUrl: 'https://opencode.ai/zen/go/v1',
+            apiKey: 'sk-test',
+            models: [
+              {
+                id: 'model-1',
+                modelId: 'minimax-m3',
+                displayName: 'MiniMax M3',
+                supportsVision: false,
+                supportsTools: true,
+                contextWindow: 128000,
+                maxOutputTokens: 4096,
+              },
+            ],
+            isActive: true,
+            createdAt: 1,
+          },
+        ],
+      })
+    );
+
+    useSettingsStore.getState().loadSettings();
+    const [provider] = useSettingsStore.getState().providers;
+    const [model] = provider.models;
+
+    expect(model.efforts).toEqual([]);
+    expect(model.defaultEffort).toBeNull();
+    expect(model.effortParam).toBe('reasoning_effort');
+    expect(provider.sessionMode).toBeUndefined();
+
+    const persisted = JSON.parse(storage.get('tenshillm-settings') || '{}');
+    expect(persisted.providers[0].models[0].efforts).toEqual([]);
+    expect(persisted.providers[0].models[0].effortParam).toBe('reasoning_effort');
+
+    storage.delete('tenshillm-settings');
+  });
+
+  test('filters invalid effort values and keeps the default consistent', () => {
+    storage.set(
+      'tenshillm-settings',
+      JSON.stringify({
+        providers: [
+          {
+            id: 'provider-1',
+            name: 'Demo',
+            baseUrl: 'https://example.com/v1',
+            apiKey: '',
+            sessionMode: 'opencode',
+            models: [
+              {
+                id: 'model-1',
+                modelId: 'demo',
+                displayName: 'Demo',
+                efforts: ['xhigh', 'high', 'nope', 'high'],
+                defaultEffort: 'xhigh',
+                effortParam: 'bad name',
+              },
+            ],
+            isActive: true,
+            createdAt: 1,
+          },
+        ],
+      })
+    );
+
+    useSettingsStore.getState().loadSettings();
+    const [provider] = useSettingsStore.getState().providers;
+    const [model] = provider.models;
+
+    expect(model.efforts).toEqual(['high', 'xhigh']);
+    expect(model.defaultEffort).toBe('xhigh');
+    expect(model.effortParam).toBe('reasoning_effort');
+    expect(provider.sessionMode).toBe('opencode');
+
+    storage.delete('tenshillm-settings');
+  });
+
+  test('updates a model in place and normalizes its effort defaults', () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          name: 'Demo',
+          baseUrl: 'https://example.com/v1',
+          apiKey: '',
+          models: [
+            {
+              id: 'model-1',
+              modelId: 'demo',
+              displayName: 'Demo',
+              supportsVision: false,
+              supportsTools: false,
+              contextWindow: 128000,
+              maxOutputTokens: 4096,
+              efforts: ['low', 'high'],
+              defaultEffort: 'high',
+              effortParam: 'reasoning_effort',
+            },
+          ],
+          isActive: true,
+          createdAt: 1,
+        },
+      ],
+      activeProviderId: 'provider-1',
+      activeModelId: 'model-1',
+    });
+
+    useSettingsStore
+      .getState()
+      .updateModelInProvider('provider-1', 'model-1', { efforts: ['low'] });
+    let [model] = useSettingsStore.getState().providers[0].models;
+
+    expect(model.efforts).toEqual(['low']);
+    // The previous default is dropped because the model no longer enables it.
+    expect(model.defaultEffort).toBeNull();
+
+    useSettingsStore.getState().updateModelInProvider('provider-1', 'model-1', {
+      displayName: 'Demo v2',
+      defaultEffort: 'low',
+      effortParam: 'effort',
+    });
+    [model] = useSettingsStore.getState().providers[0].models;
+
+    expect(model.displayName).toBe('Demo v2');
+    expect(model.defaultEffort).toBe('low');
+    expect(model.effortParam).toBe('effort');
+
+    useSettingsStore.getState().resetSettings();
+  });
+
+  test('clears the active model when it is removed', () => {
+    useSettingsStore.setState({
+      providers: [
+        {
+          id: 'provider-1',
+          name: 'Demo',
+          baseUrl: 'https://example.com/v1',
+          apiKey: '',
+          models: [
+            {
+              id: 'model-1',
+              modelId: 'demo',
+              displayName: 'Demo',
+              supportsVision: false,
+              supportsTools: false,
+              contextWindow: 128000,
+              maxOutputTokens: 4096,
+              efforts: [],
+              defaultEffort: null,
+              effortParam: 'reasoning_effort',
+            },
+          ],
+          isActive: true,
+          createdAt: 1,
+        },
+      ],
+      activeProviderId: 'provider-1',
+      activeModelId: 'model-1',
+    });
+
+    useSettingsStore.getState().removeModelFromProvider('provider-1', 'model-1');
+
+    expect(useSettingsStore.getState().activeModelId).toBeNull();
+
+    useSettingsStore.getState().resetSettings();
+  });
+
+  test('persists the per-conversation effort selection', () => {
+    useChatStore.getState().deleteAllConversations();
+    const conversationId = useChatStore
+      .getState()
+      .createNewConversation('provider-1', 'model-1', 'Prompt');
+
+    expect(useChatStore.getState().conversations[0].effort).toBeNull();
+
+    useChatStore.getState().updateConversation(conversationId, {
+      providerId: 'provider-2',
+      modelId: 'model-2',
+      effort: 'xhigh',
+    });
+
+    const [conversation] = useChatStore.getState().conversations;
+    expect(conversation.providerId).toBe('provider-2');
+    expect(conversation.modelId).toBe('model-2');
+    expect(conversation.effort).toBe('xhigh');
+
+    const persisted = JSON.parse(storage.get('tenshillm-chat') || '{}');
+    expect(persisted.state.conversations[0].effort).toBe('xhigh');
+
+    useChatStore.getState().deleteAllConversations();
+  });
+});

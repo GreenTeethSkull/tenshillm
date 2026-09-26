@@ -33,7 +33,8 @@ src/
 │   ├── settingsStore.ts      # Providers, MCP, skills, search config
 │   └── chatStore.ts          # Conversations, messages, UI state
 ├── lib/
-│   ├── openai.ts             # OpenAI payload builder, endpoint helper + stream parser
+│   ├── openai.ts             # OpenAI payload builder, endpoint helper, request headers + stream parser
+│   ├── effort.ts             # Effort levels, validation, request-effort resolution
 │   ├── skills.ts             # Remote skill resolve/fetch/update/search wrappers (invoke)
 │   └── utils.ts              # Lightweight `cn()` className joiner (no tailwind-merge)
 └── components/
@@ -81,7 +82,9 @@ src-tauri/
 ### 1. Tauri HTTP Plugin for API Calls
 - **Why**: Browser `fetch` has CORS restrictions in Tauri WebView
 - **How**: Use `fetch` from `@tauri-apps/plugin-http` instead of native `fetch`
-- **Scope**: Configured in `capabilities/default.json` to allow `https://**` and `http://**`
+- **Scope**: Configured in `capabilities/default.json` to allow `https://**:*` and `http://**:*`
+  (the `:*` port wildcard is required — URL-pattern scopes without it only match default
+  ports 443/80, which breaks providers on custom ports such as Ollama on `localhost:11434`)
 
 ### 2. Reasoning Model Support
 - Models like `mimo-v2.5-pro` return `reasoning_content` alongside `content`
@@ -93,12 +96,39 @@ src-tauri/
 - Provider URLs may be entered as a base URL or as a complete `/chat/completions` endpoint
 - Frontend and Rust backend normalize the URL without duplicating the completion path
 
-### 2.2 DuckDuckGo Search
+### 2.2 OpenCode Session Header (`x-opencode-session`)
+- OpenCode Go/Zen rejects requests with `400 MissingSessionID` unless each request carries a
+  **stable session ID per conversation** in `x-opencode-session` (used server-side for routing
+  and prompt caching) plus a self-identifying `User-Agent` (`TenshiLLM/1.0`)
+- `isOpencodeProvider()` in `src/lib/openai.ts` decides this: `ApiProvider.sessionMode`
+  (`'auto' | 'opencode' | 'standard'`) overrides, `auto`/undefined detects hostnames
+  `opencode.ai`/`*.opencode.ai` from the Base URL
+- `buildRequestHeaders(provider, sessionId)` adds both headers only for OpenCode providers;
+  the session ID is the conversation ID (already stable per conversation)
+- The live request path is the frontend `fetch` in `ChatView.tsx` (Tauri `plugin-http` in
+  desktop/mobile, `window.fetch` in browser-only dev); the Rust `send_chat_request` /
+  `test_provider_connection` commands are unused dead code and do not carry these headers
+
+### 2.3 Per-Model Reasoning Effort
+- Models may expose effort levels `low | medium | high | xhigh | max` (`src/lib/effort.ts`);
+  `ModelConfig` carries `efforts` (enabled levels, empty = feature off), `defaultEffort`
+  (`null` = omit the parameter), and `effortParam` (body key, `reasoning_effort` by default,
+  validated as a plain identifier to keep the dynamic JSON key safe)
+- The resolved effort is sent as `body[effortParam] = level` via `applyEffortParam`;
+  `resolveEffortConfig` falls back conversation selection → model default → omit, and
+  re-validates against the model's enabled levels on every send (stale selections drop out)
+- `Conversation.effort` (`null` = follow the model default) is set from the chat header's
+  model/effort switchers; switching models resets it to `null`
+- `src/lib/effort.ts` holds all validation/normalization helpers; settings hydration
+  normalizes legacy models (missing fields → defaults, invalid values filtered) and the chat
+  persist `version: 3` migration normalizes conversation efforts
+
+### 2.4 DuckDuckGo Search
 - DuckDuckGo is the default provider and does not require an API key
 - The Rust backend uses DuckDuckGo's HTML results endpoint and normalizes title, URL, and snippet fields
 - Anti-bot responses fail explicitly instead of being treated as empty successful results
 
-### 2.3 Remote Skills (skills.sh ecosystem)
+### 2.5 Remote Skills (skills.sh ecosystem)
 - Skills can be installed remotely from the open agent skills ecosystem (`npx skills`-compatible sources) **without Node**: the registry is GitHub/GitLab and the package format is a `SKILL.md` with optional flat YAML frontmatter (`name`, `description`)
 - All network work happens in Rust (`src-tauri/src/skills.rs`) via reqwest — HTTP only, so it works on desktop, Android, and iOS (no `tauri-plugin-shell`, no `npx`)
 - Accepted sources: `owner/repo` shorthand, GitHub/GitLab URLs (`/tree/<ref>[/<path>]`, `/blob/<ref>/<path>/SKILL.md`), and any direct `SKILL.md` URL
@@ -148,27 +178,43 @@ src-tauri/
 - `defaultSystemPrompt`: Base system prompt for all conversations
 - Persists to `tenshillm-settings`
 - Search controls and the system prompt persist immediately after changes
+- Model CRUD: `addModelToProvider` / `updateModelInProvider` / `removeModelFromProvider`
+  (`updateModelInProvider` re-normalizes the merged model; removing the active model clears
+  `activeModelId`)
+- `loadSettings()` normalizes legacy providers/models: effort fields get defaults
+  (`efforts: []`, `defaultEffort: null`, `effortParam: 'reasoning_effort'`, invalid values
+  filtered) and re-persists once when a migration changed anything
 - `resetSettings()` clears providers, MCP servers, skills, search, prompt, and font size
 
 **chatStore.ts**
-- `conversations`: Array of conversation metadata
+- `conversations`: Array of conversation metadata (`effort` holds the per-conversation
+  effort selection; `null` = follow the model default)
 - `messages`: Record<string, Message[]> keyed by conversation ID
 - `isStreaming`: Request-level streaming state
 - Assistant messages use optional `completionStatus` to distinguish streaming,
   completed, aborted, and failed responses
 - `sidebarOpen` / `settingsOpen` / `cleanupOpen`: UI panel state
+- Chat persistence version is `3`; `migratePersistedChatState` normalizes legacy
+  Thinking markup (pre-v2) and conversation efforts (pre-v3)
 
 ## Component Patterns
 
 ### ChatView.tsx — Streaming Flow
-1. Build payload with `buildChatPayload()` from `lib/openai.ts`
+1. Build payload with `buildChatPayload()` from `lib/openai.ts` (resolves the effort config
+   with `resolveEffortConfig(model, conversation.effort)` and passes it as the last argument)
 2. Add MCP tools if servers are connected
 3. Add search tool if enabled
-4. Use `fetch` from `@tauri-apps/plugin-http` to POST to API
+4. Use `fetch` from `@tauri-apps/plugin-http` to POST to API with headers from
+   `buildRequestHeaders(provider, conversationId)` (adds `x-opencode-session` + `User-Agent`
+   for OpenCode providers)
 5. Parse response text line by line for SSE chunks
 6. Handle both `content` and `reasoning_content` deltas
 7. Normalize inline `<think>` blocks before displaying the answer
 8. Update UI via Zustand stores
+- The chat header carries a **model switcher** (all providers/models as `providerId::modelId`
+  optgroups; updates the conversation's provider/model and resets `effort` to the model
+  default) and an **effort switcher** (visible only when `isEffortConfigured(model)`;
+  `Default (…)` + the model's enabled levels, persisted on the conversation)
 
 ### MessageBubble.tsx — Rendering
 - **User messages**: right-aligned, `rounded-2xl rounded-tr-md` bubble (asymmetric corner like Telegram/iMessage), `px-5 py-3`, `bg-user-bubble text-user-bubble-foreground`
@@ -182,7 +228,7 @@ src-tauri/
 ### SettingsPanel.tsx — Drawer + Tabs
 - Rendered inside a custom `Drawer` (right slide-over from `Overlay.tsx`) with Escape + backdrop dismissal
 - Uses HeroUI `Tabs` (compound: `Tabs.ListContainer` / `Tabs.List` / `Tabs.Tab` / `Tabs.Panel`) with `selectedKey` + `onSelectionChange`
-- **Providers**: CRUD for API providers and their models (custom `TextInput`/`CheckBox` primitives + inline forms)
+- **Providers**: CRUD for API providers and their models (custom `TextInput`/`CheckBox` primitives + inline forms). The provider form includes an **API type** select (`auto` / `opencode` / `standard`, stored as `sessionMode`) and providers/models have **Edit** buttons that pre-fill the same forms. The model form has an **Effort modes** checkbox group (`low`…`max`), a **Default effort** select (only enabled levels), and the **Effort parameter** body key (validated identifier, rejected with a toast otherwise)
 - **Themes**: Visual theme selector with color previews
 - **MCP**: Remote MCP server configuration (custom `Toggle` + `TextAreaInput` for headers)
 - **Search**: Web search provider setup (custom `Toggle` + `SelectInput` + `RangeInput` + `TextInput`)
@@ -291,15 +337,16 @@ rm -rf src-tauri/target/debug src-tauri/target/flycheck0
 ```
 Then re-run `bun run tauri dev` — a full recompile will regenerate permission files with the correct paths.
 
-### CORS Errors
-**Problem**: `url not allowed on the configured scope`
-**Solution**: Ensure `capabilities/default.json` has HTTP scope:
+### CORS / HTTP Scope Errors
+**Problem**: `url not allowed on the configured scope` (Tauri `plugin-http`), e.g. for a provider on `http://localhost:11434` (Ollama) or a local test endpoint on a non-default port.
+**Root cause**: URL-pattern scopes without a port wildcard only match the scheme's default port (443/80), so `http://**` rejects `http://127.0.0.1:8787`.
+**Solution**: Ensure `capabilities/default.json` has HTTP scope with `:*` port wildcards:
 ```json
 {
   "identifier": "http:default",
   "allow": [
-    {"url": "https://**"},
-    {"url": "http://**"}
+    {"url": "https://**:*"},
+    {"url": "http://**:*"}
   ]
 }
 ```

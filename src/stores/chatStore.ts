@@ -127,6 +127,8 @@ export const useChatStore = create<ChatState>()(
           createdAt: now,
           updatedAt: now,
           isArchived: false,
+          // null = follow the model's configured default effort.
+          effort: null,
         };
         set((s) => ({
           conversations: [conversation, ...s.conversations],
@@ -152,7 +154,7 @@ export const useChatStore = create<ChatState>()(
     {
       name: 'tenshillm-chat',
       storage: createJSONStorage(() => localStorage),
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) =>
         migratePersistedChatState(persistedState as PersistedChatState, version),
       partialize: (state) => ({

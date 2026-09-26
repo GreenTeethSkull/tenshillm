@@ -69,6 +69,26 @@ describe('chat history migration', () => {
       content: 'answer',
       reasoning: 'reasoning',
     });
-    expect(migratePersistedChatState(state, 2)).toBe(state);
+    const migrated = migratePersistedChatState(state, 2);
+    expect(migrated.messages).toBe(state.messages);
+    expect(migrated.conversations).toEqual([]);
+    expect(migratePersistedChatState(state, 3)).toBe(state);
+  });
+
+  test('normalizes conversation effort selections for old persistence versions', () => {
+    const state = {
+      conversations: [
+        { id: 'c-1', effort: 'xhigh' },
+        { id: 'c-2', effort: 'nope' },
+        { id: 'c-3' },
+      ] as never,
+      activeConversationId: null,
+      messages: {},
+    };
+
+    const migrated = migratePersistedChatState(state, 2);
+
+    expect(migrated.conversations.map((c) => c.effort)).toEqual(['xhigh', null, null]);
+    expect(migratePersistedChatState(state, 3)).toBe(state);
   });
 });

@@ -16,8 +16,12 @@
 
 import { describe, expect, test } from 'bun:test';
 import {
+  APP_USER_AGENT,
+  OPENCODE_SESSION_HEADER,
   buildChatPayload,
+  buildRequestHeaders,
   chatCompletionsEndpoint,
+  isOpencodeProvider,
   normalizeInlineThinking,
   parseStreamChunk,
   readOpenAiStream,
@@ -290,5 +294,99 @@ describe('OpenAI stream parsing', () => {
     });
 
     expect(received).toHaveLength(0);
+  });
+});
+
+describe('effort parameter in payloads', () => {
+  test('sends the level under the model-configured body key', () => {
+    const payload = buildChatPayload([message()], 'demo-model', '', [], 4096, {
+      param: 'reasoning_effort',
+      value: 'high',
+    });
+
+    expect((payload as Record<string, unknown>)['reasoning_effort']).toBe('high');
+  });
+
+  test('supports custom parameter names per model', () => {
+    const payload = buildChatPayload([message()], 'demo-model', '', [], 4096, {
+      param: 'effort',
+      value: 'xhigh',
+    });
+
+    expect((payload as Record<string, unknown>)['effort']).toBe('xhigh');
+    expect((payload as Record<string, unknown>)['reasoning_effort']).toBeUndefined();
+  });
+
+  test('omits the parameter when no effort is resolved', () => {
+    const payload = buildChatPayload([message()], 'demo-model', '', []);
+
+    expect('reasoning_effort' in payload).toBe(false);
+    expect('effort' in payload).toBe(false);
+  });
+
+  test('ignores unsafe or invalid effort configs', () => {
+    const payload = buildChatPayload([message()], 'demo-model', '', [], 4096, {
+      param: '__proto__',
+      value: 'high',
+    });
+
+    expect('reasoning_effort' in payload).toBe(false);
+    expect(Object.getPrototypeOf(payload)).toBe(Object.prototype);
+  });
+});
+
+describe('provider request headers', () => {
+  test('detects OpenCode Zen/Go from the base URL', () => {
+    expect(isOpencodeProvider({ baseUrl: 'https://opencode.ai/zen/go/v1', apiKey: 'k' })).toBe(true);
+    expect(isOpencodeProvider({ baseUrl: 'https://api.opencode.ai/v1', apiKey: 'k' })).toBe(true);
+    expect(isOpencodeProvider({ baseUrl: 'opencode.ai/zen/go/v1', apiKey: 'k' })).toBe(true);
+    expect(isOpencodeProvider({ baseUrl: 'https://notopencode.ai/v1', apiKey: 'k' })).toBe(false);
+    expect(isOpencodeProvider({ baseUrl: 'https://opencode.ai.example.com/v1', apiKey: 'k' })).toBe(
+      false
+    );
+    expect(
+      isOpencodeProvider({ baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k' })
+    ).toBe(false);
+  });
+
+  test('honors explicit session mode overrides', () => {
+    expect(
+      isOpencodeProvider({
+        baseUrl: 'https://proxy.example.com/v1',
+        apiKey: 'k',
+        sessionMode: 'opencode',
+      })
+    ).toBe(true);
+    expect(
+      isOpencodeProvider({
+        baseUrl: 'https://opencode.ai/zen/go/v1',
+        apiKey: 'k',
+        sessionMode: 'standard',
+      })
+    ).toBe(false);
+  });
+
+  test('sends a stable per-conversation session header to OpenCode', () => {
+    const headers = buildRequestHeaders(
+      { baseUrl: 'https://opencode.ai/zen/go/v1', apiKey: 'sk-test' },
+      'conversation-1'
+    );
+
+    expect(headers[OPENCODE_SESSION_HEADER]).toBe('conversation-1');
+    expect(headers['User-Agent']).toBe(APP_USER_AGENT);
+    expect(headers.Authorization).toBe('Bearer sk-test');
+    expect(headers['Content-Type']).toBe('application/json');
+    expect(headers.Accept).toBe('text/event-stream');
+  });
+
+  test('keeps other providers untouched', () => {
+    const headers = buildRequestHeaders(
+      { baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'sk-test' },
+      'conversation-1'
+    );
+
+    expect(headers[OPENCODE_SESSION_HEADER]).toBeUndefined();
+    expect(headers['User-Agent']).toBeUndefined();
+    expect(headers.Authorization).toBe('Bearer sk-test');
   });
 });

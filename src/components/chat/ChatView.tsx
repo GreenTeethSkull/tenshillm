@@ -23,6 +23,7 @@ import { PanelLeftOpen, PanelLeftClose, Settings } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import type {
   Attachment,
+  Effort,
   McpServer,
   Message,
   SearchConfig,
@@ -31,10 +32,12 @@ import type {
 } from '@/types';
 import {
   buildChatPayload,
+  buildRequestHeaders,
   chatCompletionsEndpoint,
   normalizeInlineThinking,
   readOpenAiStream,
 } from '@/lib/openai';
+import { isEffort, isEffortConfigured, resolveEffortConfig } from '@/lib/effort';
 import { callMcpTool, listMcpTools } from '@/lib/mcp';
 import { describeRuntimeError, isTauriRuntime } from '@/lib/runtime';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
@@ -63,18 +66,14 @@ function isAbortError(error: unknown, signal: AbortSignal): boolean {
 
 async function requestCompletion(
   baseUrl: string,
-  apiKey: string,
+  headers: Record<string, string>,
   payload: ReturnType<typeof buildChatPayload>,
   signal: AbortSignal,
   onUpdate: (update: StreamUpdate) => void
 ): Promise<StreamedCompletion> {
   const requestInit = {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers,
     body: JSON.stringify(payload),
     signal,
     connectTimeout: 30000,
@@ -375,6 +374,15 @@ export function ChatView() {
   const configuredProvider = providers.find((p) => p.id === activeProviderId);
   const configuredModel = configuredProvider?.models.find((m) => m.id === activeModelId);
   const canStartConversation = Boolean(configuredProvider && configuredModel);
+  const modelSelectValue =
+    provider && model ? `${activeConversation?.providerId}::${activeConversation?.modelId}` : '';
+  // Displayed selection is re-validated against the model's enabled levels so a
+  // stale conversation effort (e.g. after editing the model) cannot linger.
+  const conversationEffort = activeConversation?.effort;
+  const effortSelection: Effort | null =
+    model && isEffort(conversationEffort) && model.efforts.includes(conversationEffort)
+      ? conversationEffort
+      : null;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -450,6 +458,10 @@ export function ChatView() {
 
       let conversationMessages: Message[] = [...currentMessages, userMessage];
       const maxToolRounds = 8;
+      // Resolved once per send so a mid-stream settings edit cannot change the
+      // request shape halfway through a tool loop.
+      const effortConfig = resolveEffortConfig(model, activeConversation.effort);
+      const requestHeaders = buildRequestHeaders(provider, activeConversationId);
 
       for (let round = 0; round < maxToolRounds; round += 1) {
         if (signal.aborted) throw new Error('Request cancelled');
@@ -459,7 +471,8 @@ export function ChatView() {
           model.modelId,
           systemPrompt,
           mcpTools,
-          model.maxOutputTokens
+          model.maxOutputTokens,
+          effortConfig
         );
 
         if (model.supportsTools && canUseSearch(searchConfig)) {
@@ -482,7 +495,7 @@ export function ChatView() {
 
         const completion = await requestCompletion(
           provider.baseUrl,
-          provider.apiKey,
+          requestHeaders,
           payload,
           signal,
           ({ content, reasoning, toolCalls }) => {
@@ -588,6 +601,28 @@ export function ChatView() {
     createNewConversation(activeProviderId, activeModelId, defaultSystemPrompt);
   };
 
+  const handleModelChange = (value: string) => {
+    if (!activeConversationId) return;
+    const separator = value.indexOf('::');
+    if (separator < 0) return;
+    const targetProvider = providers.find((p) => p.id === value.slice(0, separator));
+    const targetModel = targetProvider?.models.find((m) => m.id === value.slice(separator + 2));
+    if (!targetProvider || !targetModel) return;
+
+    // Switching models resets the effort to the new model's default.
+    updateConversation(activeConversationId, {
+      providerId: targetProvider.id,
+      modelId: targetModel.id,
+      effort: null,
+    });
+  };
+
+  const handleEffortChange = (value: string) => {
+    if (!activeConversationId || !model) return;
+    const effort: Effort | null = isEffort(value) && model.efforts.includes(value) ? value : null;
+    updateConversation(activeConversationId, { effort });
+  };
+
   if (!activeConversation) {
     return (
       <div className="flex-1 flex flex-col min-h-dvh">
@@ -679,10 +714,48 @@ export function ChatView() {
             <h2 className="text-base font-semibold truncate leading-snug tracking-tight">
               {activeConversation.title}
             </h2>
-            <p className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1.5">
-              <span className="size-1.5 rounded-full bg-success/80 shrink-0" aria-hidden="true" />
-              {provider?.name} / {model?.displayName}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+              <span
+                className="size-1.5 rounded-full bg-success/80 shrink-0"
+                aria-hidden="true"
+              />
+              <select
+                value={modelSelectValue}
+                onChange={(event) => handleModelChange(event.target.value)}
+                aria-label="Model"
+                title={model ? `${provider?.name} / ${model.displayName}` : 'Select a model'}
+                className="min-w-0 max-w-[40vw] sm:max-w-[220px] truncate rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-muted-foreground cursor-pointer hover:border-border hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-colors"
+              >
+                {modelSelectValue === '' && <option value="">Select a model</option>}
+                {providers.map((p) => (
+                  <optgroup key={p.id} label={p.name}>
+                    {p.models.map((m) => (
+                      <option key={m.id} value={`${p.id}::${m.id}`}>
+                        {m.displayName}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              {model && isEffortConfigured(model) && (
+                <select
+                  value={effortSelection ?? ''}
+                  onChange={(event) => handleEffortChange(event.target.value)}
+                  aria-label="Reasoning effort"
+                  title="Reasoning effort for this conversation"
+                  className="shrink-0 rounded-md border border-border bg-transparent px-1.5 py-0.5 text-xs text-muted-foreground cursor-pointer hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-colors"
+                >
+                  <option value="">
+                    {model.defaultEffort ? `Default (${model.defaultEffort})` : 'Default'}
+                  </option>
+                  {model.efforts.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
         </div>
         <button

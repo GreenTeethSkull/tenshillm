@@ -20,8 +20,9 @@ Use a dotenv-aware loader or shell session to read the variables. Do not paste d
 
 | Test data | Variables to read from `.env` | Use in the app |
 | --- | --- | --- |
-| Provider | `TENSILLM_PROVIDER_NAME`, `TENSILLM_PROVIDER_ENDPOINT`, `TENSILLM_PROVIDER_API_KEY` | `Settings > Providers` |
+| Provider | `TENSILLM_PROVIDER_NAME`, `TENSILLM_PROVIDER_ENDPOINT`, `TENSILLM_PROVIDER_API_KEY` | `Settings > Providers` (API type: `Auto` for opencode.ai endpoints) |
 | Model | `TENSILLM_PROVIDER_MODEL_ID`, `TENSILLM_PROVIDER_MODEL_NAME`, `TENSILLM_PROVIDER_TOOLS`, `TENSILLM_PROVIDER_VISION` | Add model with Tools and Vision enabled |
+| Effort modes | Fixed test values (no `.env` vars) | Enable `low`, `medium`, `high`, `xhigh`, `max`; default `medium`; parameter `reasoning_effort` |
 | Context7 MCP | `TENSILLM_CONTEXT7_NAME`, `TENSILLM_CONTEXT7_URL`, `TENSILLM_CONTEXT7_HEADER_NAME`, `TENSILLM_CONTEXT7_API_KEY` | Headers JSON: `{ "<header name>": "<key>" }` |
 | Dynatrace MCP | `TENSILLM_DYNATRACE_NAME`, `TENSILLM_DYNATRACE_URL`, `TENSILLM_DYNATRACE_AUTHORIZATION` | Headers JSON: `{ "Authorization": "<authorization>" }` |
 | Search | `TENSILLM_SEARCH_PROVIDER`, `TENSILLM_SEARCH_API_KEY`, `TENSILLM_SEARCH_MAX_RESULTS`, `TENSILLM_SEARCH_QUERY` | `Settings > Search`; leave the DuckDuckGo key empty |
@@ -76,12 +77,28 @@ Expected: the switch remains enabled and DuckDuckGo remains selected. In DevTool
 ### 3. Provider and model
 
 1. Open `Settings > Providers`.
-2. Add `TENSILLM_PROVIDER_ENDPOINT` with `TENSILLM_PROVIDER_API_KEY`.
+2. Add `TENSILLM_PROVIDER_ENDPOINT` with `TENSILLM_PROVIDER_API_KEY`. Keep **API type** on `Auto` for opencode.ai endpoints (or force `OpenCode (Zen/Go)` for proxies on custom domains).
 3. Add the model and flags from `TENSILLM_PROVIDER_MODEL_ID`, `TENSILLM_PROVIDER_MODEL_NAME`, `TENSILLM_PROVIDER_TOOLS`, and `TENSILLM_PROVIDER_VISION`.
-4. Select the provider and model in the sidebar.
-5. Use the provider connection test if available.
+4. In the model form, enable the five **Effort modes** (`low`, `medium`, `high`, `xhigh`, `max`), set **Default effort** to `medium`, and keep **Effort parameter** as `reasoning_effort`.
+5. Save the model and verify the model row shows the `Effort (5)` badge.
+6. Use the model's **Edit** button and verify the form pre-fills every field (checkboxes, default effort, parameter). Try saving with an invalid effort parameter (e.g. `bad name`): the save must be rejected with a toast and the form must stay open.
+7. Use the provider's **Edit** button and verify the API type select pre-fills. Switching a provider to `Standard (no session header)` and sending a chat must produce the OpenCode `MissingSessionID` error against an OpenCode endpoint; switching back to `OpenCode`/`Auto` must recover.
+8. Select the provider and model in the sidebar.
+9. Use the provider connection test if available.
 
-Expected: the provider/model can be selected and the connection test succeeds. A failure must include only the HTTP status/category in the test record.
+Expected: the provider/model can be selected, the effort form round-trips through edit + reload, invalid parameters are rejected, and the connection test succeeds. A failure must include only the HTTP status/category in the test record.
+
+### 3b. OpenCode session header and chat switchers
+
+1. Start a chat with the effort-enabled model from section 3.
+2. Verify the chat header shows the **Model** switcher (grouped by provider) and the **Effort** switcher (`Default (medium)` + the enabled levels).
+3. Send a short message and confirm a normal reply — no `400 MissingSessionID`.
+4. In browser-only mode, inspect DevTools > Network: the request must carry `x-opencode-session` with a value that stays **stable across turns of the same conversation**. (`User-Agent: TenshiLLM/1.0` is only sent from the Tauri runtime; browsers override the UA.)
+5. Change the effort to another level and send again. The provider must accept the request; the body must carry `"reasoning_effort": "<level>"` under the configured parameter name.
+6. Switch to a model of a different provider via the Model switcher. The effort switcher must reset to `Default (…)` of the new model and the next request must use the new model.
+7. Reload the app and verify the conversation keeps its model and effort selection.
+
+Expected: no `MissingSessionID` on OpenCode endpoints, `x-opencode-session` stable per conversation, effort changes reflected in the request body, model switching updates provider/model and resets effort, and all selections persist across reloads.
 
 ### 4. Remote MCP servers
 
@@ -235,6 +252,12 @@ Runtime: Tauri desktop/mobile or browser-only
 Search default: PASS/FAIL
 Search switch persistence: PASS/FAIL
 Provider/model: PASS/FAIL
+Provider/model edit round-trip: PASS/FAIL
+Effort parameter validation: PASS/FAIL
+OpenCode session header (no MissingSessionID): PASS/FAIL
+Effort sent in request body: PASS/FAIL
+Chat model/effort switchers: PASS/FAIL
+Switcher selection persists after reload: PASS/FAIL
 Context7 MCP: PASS/FAIL (tools: N)
 Dynatrace MCP: PASS/FAIL (tools: N)
 hello-world skill: PASS/FAIL

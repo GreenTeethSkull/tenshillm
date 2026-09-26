@@ -19,8 +19,10 @@
 
 ### Core Chat
 - **OpenAI-compatible API**: Connect to any provider (OpenRouter, Ollama, OpenCode, custom endpoints)
+- **OpenCode Zen/Go ready**: Sends the required `x-opencode-session` header (stable per conversation) plus a self-identifying User-Agent, so subscription endpoints accept the traffic
 - **Streaming responses**: Real-time SSE streaming with live updates
 - **Reasoning model support**: Supports `reasoning_content` and inline `<think>` blocks (e.g., mimo-v2.5-pro)
+- **Per-model reasoning effort**: Configure which effort levels a model supports (`low`, `medium`, `high`, `xhigh`, `max`) and switch them per conversation from the chat header
 - **Markdown rendering**: Rich text with syntax highlighting for code blocks
 - **Multi-conversation**: Manage multiple conversations with sidebar navigation
 
@@ -265,10 +267,12 @@ tenshillm/
    - **Name**: e.g., "OpenRouter"
     - **Base URL or endpoint**: e.g., `https://openrouter.ai/api/v1` or `https://provider.example.com/v1/chat/completions`
    - **API Key**: Your API key
-5. Click **Save**
+   - **API type**: `Auto` (detects OpenCode from the Base URL), `OpenCode (Zen/Go)`, or `Standard`. OpenCode endpoints require the `x-opencode-session` header; pick `Standard` to suppress it for OpenCode-compatible proxies on custom domains.
+5. Click **Save** (existing providers can be edited with the pencil button)
 6. Click **Add Model** under the provider
 7. Enter model details (ID, name, capabilities)
-8. Click the model to set it as active
+8. Optionally enable **Effort modes**: check the levels the model supports (`low`, `medium`, `high`, `xhigh`, `max`), pick a **Default effort** (`Let the API decide` omits the parameter), and set the **Effort parameter** name carried in the request body (`reasoning_effort` by default — change it if the endpoint expects another field). Leave all levels unchecked to disable effort for the model.
+9. Click the model to set it as active
 
 ### Adding MCP Servers
 
@@ -353,9 +357,19 @@ TenshiLLM sends requests in OpenAI chat completions format:
   ],
   "stream": true,
   "max_tokens": 4096,
-  "temperature": 0.7
+  "temperature": 0.7,
+  "reasoning_effort": "high"
 }
 ```
+
+`reasoning_effort` is only sent when the model has effort modes enabled and the conversation selects one (or the model defines a default). The field name is configurable per model. When OpenCode is detected (or forced via the provider's API type), each request also carries:
+
+```http
+x-opencode-session: <stable conversation id>
+User-Agent: TenshiLLM/1.0
+```
+
+OpenCode Zen/Go rejects requests without `x-opencode-session` (`MissingSessionID`), so the app derives it from the conversation ID — stable per conversation, which is what the service needs for routing and prompt caching.
 
 For vision models, images are sent as base64:
 
@@ -383,16 +397,19 @@ rm -rf src-tauri/target/debug src-tauri/target/flycheck0
 Then re-run `bun run tauri dev` — the recompile regenerates permission files with the correct paths. See [AGENTS.md](AGENTS.md#desktop-build-fails-with-failed-to-read-plugin-permissions) for details.
 
 ### "url not allowed on the configured scope"
-The HTTP plugin scope needs to be configured in `src-tauri/capabilities/default.json`. Ensure it includes:
+The HTTP plugin scope needs to be configured in `src-tauri/capabilities/default.json`. Include the `:*` port wildcard — without it only the default ports (443/80) are allowed, which breaks providers such as Ollama on `http://localhost:11434`:
 ```json
 {
   "identifier": "http:default",
   "allow": [
-    {"url": "https://**"},
-    {"url": "http://**"}
+    {"url": "https://**:*"},
+    {"url": "http://**:*"}
   ]
 }
 ```
+
+### OpenCode returns `400 MissingSessionID`
+OpenCode Zen/Go requires a stable per-conversation `x-opencode-session` header. TenshiLLM sends it automatically for providers whose Base URL is `opencode.ai` (or whose API type is `OpenCode (Zen/Go)`). If you route OpenCode through a custom domain, open **Settings > Providers**, edit the provider and set **API type** to `OpenCode (Zen/Go)`.
 
 ### Build fails with Rust errors (iOS)
 Ensure Rust is installed via Homebrew with rustup for iOS cross-compilation:

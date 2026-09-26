@@ -18,11 +18,13 @@ import { useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { DEFAULT_SYSTEM_PROMPT, useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
-import { THEMES } from '@/types';
+import { THEMES, EFFORT_LEVELS } from '@/types';
 import type {
   ApiProvider,
+  Effort,
   ModelConfig,
   McpServer,
+  ProviderSessionMode,
   SearchConfig,
   AgentSkill,
   SkillContentResult,
@@ -34,6 +36,7 @@ import {
   Plus,
   Trash2,
   Palette,
+  Pencil,
   Server,
   Cpu,
   Search as SearchIcon,
@@ -62,6 +65,11 @@ import {
 } from '@/lib/skills';
 import { describeRuntimeError, isTauriRuntime } from '@/lib/runtime';
 import {
+  DEFAULT_EFFORT_PARAM,
+  isValidEffortParam,
+  normalizeEfforts,
+} from '@/lib/effort';
+import {
   Toggle,
   TextInput,
   TextAreaInput,
@@ -82,12 +90,14 @@ export function SettingsPanel() {
   const {
     providers,
     addProvider,
+    updateProvider,
     removeProvider,
     activeProviderId,
     activeModelId,
     setActiveProvider,
     setActiveModel,
     addModelToProvider,
+    updateModelInProvider,
     removeModelFromProvider,
     mcpServers,
     addMcpServer,
@@ -111,19 +121,27 @@ export function SettingsPanel() {
 
   // Provider form
   const [showProviderForm, setShowProviderForm] = useState(false);
+  const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [providerName, setProviderName] = useState('');
   const [providerUrl, setProviderUrl] = useState('');
   const [providerKey, setProviderKey] = useState('');
+  const [providerSessionMode, setProviderSessionMode] = useState<ProviderSessionMode>('auto');
   const [showKey, setShowKey] = useState(false);
 
-  // Model form
-  const [showModelForm, setShowModelForm] = useState<string | null>(null);
+  // Model form (add + edit)
+  const [modelForm, setModelForm] = useState<{
+    providerId: string;
+    editModelId: string | null;
+  } | null>(null);
   const [modelId, setModelId] = useState('');
   const [modelName, setModelName] = useState('');
   const [modelVision, setModelVision] = useState(false);
   const [modelTools, setModelTools] = useState(false);
   const [modelContext, setModelContext] = useState('128000');
   const [modelMaxOutput, setModelMaxOutput] = useState('4096');
+  const [modelEfforts, setModelEfforts] = useState<Effort[]>([]);
+  const [modelDefaultEffort, setModelDefaultEffort] = useState<Effort | ''>('');
+  const [modelEffortParam, setModelEffortParam] = useState(DEFAULT_EFFORT_PARAM);
 
   // MCP form
   const [showMcpForm, setShowMcpForm] = useState(false);
@@ -151,45 +169,123 @@ export function SettingsPanel() {
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [updatingSkillId, setUpdatingSkillId] = useState<string | null>(null);
 
-  const handleAddProvider = () => {
-    if (!providerName || !providerUrl) return;
-    const provider: ApiProvider = {
-      id: nanoid(),
-      name: providerName,
-      baseUrl: providerUrl.replace(/\/+$/, ''),
-      apiKey: providerKey,
-      models: [],
-      isActive: true,
-      createdAt: Date.now(),
-    };
-    addProvider(provider);
+  const resetProviderForm = () => {
+    setEditingProviderId(null);
     setProviderName('');
     setProviderUrl('');
     setProviderKey('');
+    setProviderSessionMode('auto');
+    setShowKey(false);
     setShowProviderForm(false);
-    saveSettings();
-    toast.success('Provider added');
   };
 
-  const handleAddModel = (providerId: string) => {
-    if (!modelId || !modelName) return;
+  const openProviderForm = (provider?: ApiProvider) => {
+    setEditingProviderId(provider?.id ?? null);
+    setProviderName(provider?.name ?? '');
+    setProviderUrl(provider?.baseUrl ?? '');
+    setProviderKey(provider?.apiKey ?? '');
+    setProviderSessionMode(provider?.sessionMode ?? 'auto');
+    setShowKey(false);
+    setShowProviderForm(true);
+  };
+
+  const handleSaveProvider = () => {
+    if (!providerName || !providerUrl) return;
+    const baseUrl = providerUrl.replace(/\/+$/, '');
+    if (editingProviderId) {
+      updateProvider(editingProviderId, {
+        name: providerName,
+        baseUrl,
+        apiKey: providerKey,
+        sessionMode: providerSessionMode,
+      });
+      toast.success('Provider updated');
+    } else {
+      const provider: ApiProvider = {
+        id: nanoid(),
+        name: providerName,
+        baseUrl,
+        apiKey: providerKey,
+        models: [],
+        isActive: true,
+        createdAt: Date.now(),
+        sessionMode: providerSessionMode,
+      };
+      addProvider(provider);
+      toast.success('Provider added');
+    }
+    resetProviderForm();
+    saveSettings();
+  };
+
+  const resetModelForm = () => {
+    setModelForm(null);
+    setModelId('');
+    setModelName('');
+    setModelVision(false);
+    setModelTools(false);
+    setModelContext('128000');
+    setModelMaxOutput('4096');
+    setModelEfforts([]);
+    setModelDefaultEffort('');
+    setModelEffortParam(DEFAULT_EFFORT_PARAM);
+  };
+
+  const openModelForm = (providerId: string, model?: ModelConfig) => {
+    setModelForm({ providerId, editModelId: model?.id ?? null });
+    setModelId(model?.modelId ?? '');
+    setModelName(model?.displayName ?? '');
+    setModelVision(model?.supportsVision ?? false);
+    setModelTools(model?.supportsTools ?? false);
+    setModelContext(String(model?.contextWindow ?? 128000));
+    setModelMaxOutput(String(model?.maxOutputTokens ?? 4096));
+    setModelEfforts(model ? [...model.efforts] : []);
+    setModelDefaultEffort(model?.defaultEffort ?? '');
+    setModelEffortParam(model?.effortParam || DEFAULT_EFFORT_PARAM);
+  };
+
+  const toggleModelEffort = (level: Effort, checked: boolean) => {
+    const efforts = normalizeEfforts(
+      checked ? [...modelEfforts, level] : modelEfforts.filter((l) => l !== level)
+    );
+    setModelEfforts(efforts);
+    // Keep the default selection valid for the enabled levels.
+    if (modelDefaultEffort && !efforts.includes(modelDefaultEffort)) setModelDefaultEffort('');
+  };
+
+  const handleSaveModel = (providerId: string) => {
+    if (!modelId || !modelName || !modelForm) return;
+    const efforts = normalizeEfforts(modelEfforts);
+    const defaultEffort =
+      modelDefaultEffort && efforts.includes(modelDefaultEffort) ? modelDefaultEffort : null;
+    const effortParam = modelEffortParam.trim() || DEFAULT_EFFORT_PARAM;
+    if (efforts.length > 0 && !isValidEffortParam(effortParam)) {
+      toast.error('Effort parameter must be a plain identifier, e.g. reasoning_effort');
+      return;
+    }
+
     const model: ModelConfig = {
-      id: nanoid(),
+      id: modelForm.editModelId ?? nanoid(),
       modelId,
       displayName: modelName,
       supportsVision: modelVision,
       supportsTools: modelTools,
       contextWindow: parseInt(modelContext) || 128000,
       maxOutputTokens: parseInt(modelMaxOutput) || 4096,
+      efforts,
+      defaultEffort,
+      effortParam,
     };
-    addModelToProvider(providerId, model);
-    setModelId('');
-    setModelName('');
-    setModelVision(false);
-    setModelTools(false);
-    setShowModelForm(null);
+
+    if (modelForm.editModelId) {
+      updateModelInProvider(providerId, modelForm.editModelId, model);
+      toast.success('Model updated');
+    } else {
+      addModelToProvider(providerId, model);
+      toast.success('Model added');
+    }
+    resetModelForm();
     saveSettings();
-    toast.success('Model added');
   };
 
   const handleAddMcp = () => {
@@ -595,7 +691,7 @@ export function SettingsPanel() {
                   </p>
                 </div>
                 <PrimaryButton
-                  onClick={() => setShowProviderForm(true)}
+                  onClick={() => openProviderForm()}
                   className="self-start shrink-0"
                 >
                   <Plus size={15} />
@@ -608,7 +704,7 @@ export function SettingsPanel() {
                   className="rounded-xl border border-border bg-card p-4 space-y-3"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    handleAddProvider();
+                    handleSaveProvider();
                   }}
                 >
                   <Field label="Provider name" htmlFor="prov-name">
@@ -653,9 +749,26 @@ export function SettingsPanel() {
                       </button>
                     </div>
                   </Field>
+                  <Field
+                    label="API type"
+                    htmlFor="prov-session"
+                    hint="OpenCode (Zen/Go) requires a per-conversation x-opencode-session header. Auto detects opencode.ai from the Base URL."
+                  >
+                    <SelectInput
+                      id="prov-session"
+                      value={providerSessionMode}
+                      onChange={(value) => setProviderSessionMode(value as ProviderSessionMode)}
+                    >
+                      <option value="auto">Auto (detect from Base URL)</option>
+                      <option value="opencode">OpenCode (Zen/Go)</option>
+                      <option value="standard">Standard (no session header)</option>
+                    </SelectInput>
+                  </Field>
                   <div className="flex gap-2 pt-1">
-                    <PrimaryButton type="submit">Save</PrimaryButton>
-                    <GhostButton onClick={() => setShowProviderForm(false)}>Cancel</GhostButton>
+                    <PrimaryButton type="submit">
+                      {editingProviderId ? 'Update' : 'Save'}
+                    </PrimaryButton>
+                    <GhostButton onClick={resetProviderForm}>Cancel</GhostButton>
                   </div>
                 </form>
               )}
@@ -692,6 +805,13 @@ export function SettingsPanel() {
                       <p className="text-xs text-muted-foreground mt-1 truncate">{p.baseUrl}</p>
                     </div>
                     <IconGhostButton
+                      onClick={() => openProviderForm(p)}
+                      ariaLabel={`Edit ${p.name}`}
+                      title="Edit provider"
+                    >
+                      <Pencil size={16} />
+                    </IconGhostButton>
+                    <IconGhostButton
                       onClick={() => {
                         removeProvider(p.id);
                         saveSettings();
@@ -722,6 +842,14 @@ export function SettingsPanel() {
                           )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                          {m.efforts.length > 0 && (
+                            <span
+                              className="hidden sm:inline-flex h-5 px-1.5 rounded text-[10px] font-medium bg-muted-bg border border-border text-muted-foreground items-center"
+                              title={`Effort: ${m.efforts.join(', ')}`}
+                            >
+                              Effort ({m.efforts.length})
+                            </span>
+                          )}
                           {m.supportsVision && (
                             <span className="hidden sm:inline-flex h-5 px-1.5 rounded text-[10px] font-medium bg-muted-bg border border-border text-muted-foreground items-center">
                               Vision
@@ -745,6 +873,14 @@ export function SettingsPanel() {
                             <Cpu size={14} />
                           </IconGhostButton>
                           <IconGhostButton
+                            onClick={() => openModelForm(p.id, m)}
+                            ariaLabel={`Edit ${m.displayName}`}
+                            title="Edit model"
+                            className="size-7"
+                          >
+                            <Pencil size={14} />
+                          </IconGhostButton>
+                          <IconGhostButton
                             onClick={() => {
                               removeModelFromProvider(p.id, m.id);
                               saveSettings();
@@ -758,7 +894,7 @@ export function SettingsPanel() {
                       </div>
                     ))}
 
-                    {showModelForm === p.id ? (
+                    {modelForm?.providerId === p.id ? (
                       <div className="rounded-xl bg-muted-bg/40 border border-border p-4 space-y-3">
                         <Field label="Model ID" htmlFor="mod-id">
                           <TextInput
@@ -808,15 +944,62 @@ export function SettingsPanel() {
                             />
                           </Field>
                         </div>
+                        <Field
+                          label="Effort modes"
+                          hint="Levels selectable per conversation in the chat header. Leave all off to disable effort."
+                        >
+                          <div className="flex flex-wrap gap-x-4 gap-y-2 pt-0.5">
+                            {EFFORT_LEVELS.map((level) => (
+                              <CheckBox
+                                key={level}
+                                id={`mod-effort-${level}`}
+                                label={level}
+                                checked={modelEfforts.includes(level)}
+                                onChange={(checked) => toggleModelEffort(level, checked)}
+                              />
+                            ))}
+                          </div>
+                        </Field>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Field label="Default effort" htmlFor="mod-default-effort">
+                            <SelectInput
+                              id="mod-default-effort"
+                              value={modelDefaultEffort}
+                              onChange={(value) => setModelDefaultEffort(value as Effort | '')}
+                            >
+                              <option value="">Let the API decide</option>
+                              {modelEfforts.map((level) => (
+                                <option key={level} value={level}>
+                                  {level}
+                                </option>
+                              ))}
+                            </SelectInput>
+                          </Field>
+                          <Field
+                            label="Effort parameter"
+                            htmlFor="mod-effort-param"
+                            hint="Body field carrying the level (e.g. reasoning_effort)"
+                          >
+                            <TextInput
+                              id="mod-effort-param"
+                              value={modelEffortParam}
+                              onChange={setModelEffortParam}
+                              placeholder={DEFAULT_EFFORT_PARAM}
+                              mono
+                            />
+                          </Field>
+                        </div>
                         <div className="flex gap-2 pt-1">
-                          <PrimaryButton onClick={() => handleAddModel(p.id)}>Add</PrimaryButton>
-                          <GhostButton onClick={() => setShowModelForm(null)}>Cancel</GhostButton>
+                          <PrimaryButton onClick={() => handleSaveModel(p.id)}>
+                            {modelForm.editModelId ? 'Save' : 'Add'}
+                          </PrimaryButton>
+                          <GhostButton onClick={resetModelForm}>Cancel</GhostButton>
                         </div>
                       </div>
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setShowModelForm(p.id)}
+                        onClick={() => openModelForm(p.id)}
                         className="w-full flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border border-dashed border-border text-muted-foreground text-sm hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
                       >
                         <Plus size={14} /> Add Model

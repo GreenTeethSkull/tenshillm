@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { Conversation, Message } from '../types';
+import { isEffort } from './effort';
 
 export interface PersistedChatState {
   conversations: Conversation[];
@@ -49,15 +50,25 @@ export function migrateLegacyMessages(
   );
 }
 
+// Conversations persisted before effort support have no selection; unknown
+// values (hand-edited storage) fall back to "follow the model default".
+export function migrateLegacyConversations(conversations: Conversation[]): Conversation[] {
+  return (Array.isArray(conversations) ? conversations : []).map((conversation) => ({
+    ...conversation,
+    effort: isEffort(conversation.effort) ? conversation.effort : null,
+  }));
+}
+
 export function migratePersistedChatState(
   state: PersistedChatState,
   version: number
 ): PersistedChatState {
-  if (version >= 2) return state;
+  if (version >= 3) return state;
 
   return {
     ...state,
-    messages: migrateLegacyMessages(state.messages),
+    messages: version < 2 ? migrateLegacyMessages(state.messages) : state.messages,
+    conversations: migrateLegacyConversations(state.conversations),
   };
 }
 

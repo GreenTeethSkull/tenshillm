@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import type { Message, McpTool } from '../types';
+import type { Message, McpTool, ProviderSessionMode } from '../types';
 import { isCompleteAssistantMessage } from './chatHistory';
+import { applyEffortParam, type EffortParamConfig } from './effort';
 
 export interface NormalizedCompletionContent {
   content: string;
@@ -61,6 +62,54 @@ export function chatCompletionsEndpoint(baseUrl: string): string {
     : `${normalizedUrl}/chat/completions`;
 }
 
+// OpenCode Go/Zen rejects requests without a session id ("MissingSessionID").
+export const OPENCODE_SESSION_HEADER = 'x-opencode-session';
+
+// OpenCode Go asks clients to identify themselves instead of sending a
+// generic SDK/user-agent name.
+export const APP_USER_AGENT = 'TenshiLLM/1.0';
+
+export interface ProviderRequestInfo {
+  baseUrl: string;
+  apiKey: string;
+  sessionMode?: ProviderSessionMode;
+}
+
+function isOpencodeUrl(baseUrl: string): boolean {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase();
+    return host === 'opencode.ai' || host.endsWith('.opencode.ai');
+  } catch {
+    return /(^|[./])opencode\.ai([:/]|$)/i.test(baseUrl);
+  }
+}
+
+export function isOpencodeProvider(provider: ProviderRequestInfo): boolean {
+  if (provider.sessionMode === 'opencode') return true;
+  if (provider.sessionMode === 'standard') return false;
+  return isOpencodeUrl(provider.baseUrl);
+}
+
+// `sessionId` must stay stable per conversation so OpenCode can optimize
+// routing and prompt caching.
+export function buildRequestHeaders(
+  provider: ProviderRequestInfo,
+  sessionId: string
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+    Authorization: `Bearer ${provider.apiKey}`,
+  };
+
+  if (isOpencodeProvider(provider)) {
+    headers[OPENCODE_SESSION_HEADER] = sessionId;
+    headers['User-Agent'] = APP_USER_AGENT;
+  }
+
+  return headers;
+}
+
 function getCompleteToolCallIds(messages: Message[]): Set<string> {
   const completeIds = new Set<string>();
 
@@ -90,7 +139,8 @@ export function buildChatPayload(
   model: string,
   systemPrompt: string,
   mcpTools: McpTool[],
-  maxTokens: number = 4096
+  maxTokens: number = 4096,
+  effort: EffortParamConfig | null = null
 ): ChatCompletionRequest {
   const apiMessages: ChatCompletionRequest['messages'] = [];
   const validToolCallIds = getCompleteToolCallIds(messages);
@@ -162,7 +212,7 @@ export function buildChatPayload(
     }));
   }
 
-  return request;
+  return applyEffortParam(request, effort);
 }
 
 export interface StreamChunk {
