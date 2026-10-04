@@ -28,6 +28,8 @@ interface Props {
 }
 
 export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Props) {
+  // Feature flag — flip to true to re-show the Enter/Shift+Enter keyboard hint
+  const SHOW_KEYBOARD_HINT = false;
   const [content, setContent] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -209,17 +211,20 @@ export function MessageInput({ onSend, onStop, isStreaming, supportsVision }: Pr
           )}
         </div>
 
-        <p className="text-[11px] text-muted-foreground text-center mt-2.5">
-          Press{' '}
+        {/* Keyboard hint — hidden for now (kept for potential future re-enable) */}
+        {SHOW_KEYBOARD_HINT && (
+          <p className="text-[11px] text-muted-foreground text-center mt-2.5">
+            Press{' '}
             <kbd className="px-1 py-0.5 rounded bg-muted-bg border border-border text-[10px] font-mono text-foreground/80">
-            Enter
-          </kbd>{' '}
-          to send ·{' '}
+              Enter
+            </kbd>{' '}
+            to send ·{' '}
             <kbd className="px-1 py-0.5 rounded bg-muted-bg border border-border text-[10px] font-mono text-foreground/80">
-            Shift+Enter
-          </kbd>{' '}
-          for new line
-        </p>
+              Shift+Enter
+            </kbd>{' '}
+            for new line
+          </p>
+        )}
       </div>
     </div>
   );

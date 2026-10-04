@@ -224,6 +224,17 @@ src-tauri/
 - Code blocks with `border` + `rounded-md` and border-radius var
 - Copy button on hover for assistant messages (HeroUI `Tooltip` wrapper, size-7 grid place-items-center)
 - Thinking indicator: 3-dot staggered bounce (`.thinking-dots` in globals.css)
+- Thinking section (`<details>` in `ThinkingSection`): rendered **open** by default while
+  streaming (`isStreaming && !message.content`) so users can watch the agent reason, and
+  collapsed by default once content arrives or streaming finishes. It uses `open` +
+  `defaultOpen` (React controls initial open state; user can still toggle manually — the
+  attribute is set only on first render since `<details open>` is not `defaultOpen`-safe
+  after re-renders without remounting)
+
+### MessageInput.tsx — Keyboard hint (hidden)
+- The "Press Enter to send · Shift+Enter for new line" legend under the input is hidden via
+  the `SHOW_KEYBOARD_HINT = false` flag in `MessageInput.tsx` — intentionally kept in code
+  but not rendered so it can be re-enabled later by flipping the flag to `true`
 
 ### SettingsPanel.tsx — Drawer + Tabs
 - Rendered inside a custom `Drawer` (right slide-over from `Overlay.tsx`) with Escape + backdrop dismissal

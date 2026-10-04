@@ -51,9 +51,15 @@ function MarkdownContent({ content }: { content: string }) {
   );
 }
 
-function ThinkingSection({ reasoning }: { reasoning: string }) {
+function ThinkingSection({
+  reasoning,
+  defaultOpen = false,
+}: {
+  reasoning: string;
+  defaultOpen?: boolean;
+}) {
   return (
-    <details className="mb-3 rounded-xl border border-border bg-muted-bg/40">
+    <details open={defaultOpen} className="mb-3 rounded-xl border border-border bg-muted-bg/40">
       <summary className="cursor-pointer select-none px-4 py-2.5 text-xs font-semibold text-muted-foreground">
         Thinking
       </summary>
@@ -194,7 +200,12 @@ export function MessageBubble({ message, isStreaming }: Props) {
         </div>
       ) : (
         <>
-          {reasoning && <ThinkingSection reasoning={reasoning} />}
+          {reasoning && (
+            <ThinkingSection
+              reasoning={reasoning}
+              defaultOpen={isStreaming && !message.content}
+            />
+          )}
           {message.content && (
             <div
               className={cn(

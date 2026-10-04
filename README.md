@@ -21,7 +21,7 @@
 - **OpenAI-compatible API**: Connect to any provider (OpenRouter, Ollama, OpenCode, custom endpoints)
 - **OpenCode Zen/Go ready**: Sends the required `x-opencode-session` header (stable per conversation) plus a self-identifying User-Agent, so subscription endpoints accept the traffic
 - **Streaming responses**: Real-time SSE streaming with live updates
-- **Reasoning model support**: Supports `reasoning_content` and inline `<think>` blocks (e.g., mimo-v2.5-pro)
+- **Reasoning model support**: Supports `reasoning_content` and inline `<think>` blocks (e.g., mimo-v2.5-pro). While the model is thinking, the Thinking section stays expanded so you can watch the agent reason, and it collapses once the answer starts streaming
 - **Per-model reasoning effort**: Configure which effort levels a model supports (`low`, `medium`, `high`, `xhigh`, `max`) and switch them per conversation from the chat header
 - **Markdown rendering**: Rich text with syntax highlighting for code blocks
 - **Multi-conversation**: Manage multiple conversations with sidebar navigation
